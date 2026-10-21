@@ -1,14 +1,24 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { DateTime } from "luxon";
 import type { ActionCard, ResolvedFields } from "@core/intent-parsing/resolve";
 import { formatDate, formatEuro } from "@core/intent-parsing/resolve";
+import type { CardPreview, Choices } from "./api";
+import { dayTitle, dateOf, time } from "./format";
 
-export type CardStatus = "pending" | "confirmed" | "discarded";
+export type CardStatus = "pending" | "busy" | "done" | "discarded";
+
+export interface CardState {
+  preview: CardPreview;
+  choices: Choices;
+  status: CardStatus;
+  message: string | null;
+  error: string | null;
+}
 
 interface Props {
-  card: ActionCard;
-  status: CardStatus;
+  state: CardState;
   onAnswer: (field: string, value: string) => void;
+  onChoose: (choices: Choices) => void;
   onConfirm: () => void;
   onDiscard: () => void;
 }
@@ -22,29 +32,31 @@ const TITLES: Record<ActionCard["type"], string> = {
   create_client: "Νέος πελάτης",
 };
 
-const CONFIRMED_NOTE: Record<ActionCard["type"], string> = {
-  create_appointment: "Επιβεβαιώθηκε. Η καταχώριση στο ημερολόγιο ενεργοποιείται στη φάση (β).",
-  reschedule_appointment: "Επιβεβαιώθηκε. Η μετακίνηση ενεργοποιείται στη φάση (β).",
-  cancel_appointment: "Επιβεβαιώθηκε. Η ακύρωση ενεργοποιείται στη φάση (β).",
-  query_calendar: "Η προβολή του προγράμματος ενεργοποιείται στη φάση (β).",
-  create_invoice: "Το προσχέδιο κρατήθηκε. Η έκδοση (με ΦΠΑ, σύνολα και κουμπί «Έκδοση») έρχεται στη φάση (γ).",
-  create_client: "Επιβεβαιώθηκε. Η αποθήκευση πελατών ενεργοποιείται στη φάση (β).",
+const CONFIRM_LABEL: Record<ActionCard["type"], string> = {
+  create_appointment: "Κλείσιμο ραντεβού",
+  reschedule_appointment: "Μετακίνηση",
+  cancel_appointment: "Ακύρωση ραντεβού",
+  query_calendar: "Εντάξει",
+  create_invoice: "Αποδοχή προσχεδίου",
+  create_client: "Προσθήκη πελάτη",
 };
 
-export function ActionCardView({ card, status, onAnswer, onConfirm, onDiscard }: Props) {
+export function ActionCardView({ state, onAnswer, onChoose, onConfirm, onDiscard }: Props) {
+  const { preview, status, choices } = state;
+  const { card, context } = preview;
   const [editing, setEditing] = useState(false);
-  const rows = fieldRows(card.fields);
-  const done = status !== "pending";
+  const open = status === "pending" || status === "busy";
+  const canConfirm = card.ready && context.blockers.length === 0 && status === "pending";
 
   return (
     <article className={`card card-${status}`} aria-label={TITLES[card.type]}>
       <header className="card-head">
         <h3>{TITLES[card.type]}</h3>
-        {status === "confirmed" && <span className="badge ok">Επιβεβαιωμένο</span>}
+        {status === "done" && <span className="badge ok">Ολοκληρώθηκε</span>}
         {status === "discarded" && <span className="badge muted">Απορρίφθηκε</span>}
       </header>
 
-      {card.type === "create_invoice" && !done && (
+      {card.type === "create_invoice" && open && (
         <p className="notice">
           Προσχέδιο. ΦΠΑ, σύνολα, τύπος και αρίθμηση παραστατικού υπολογίζονται από το σύστημα στη φάση (γ), όχι από
           το LLM.
@@ -52,7 +64,7 @@ export function ActionCardView({ card, status, onAnswer, onConfirm, onDiscard }:
       )}
 
       <dl className="fields">
-        {rows.map(([label, value]) => (
+        {fieldRows(card.fields).map(([label, value]) => (
           <div key={label} className="row">
             <dt>{label}</dt>
             <dd className={value ? "" : "missing"}>{value ?? "—"}</dd>
@@ -60,28 +72,74 @@ export function ActionCardView({ card, status, onAnswer, onConfirm, onDiscard }:
         ))}
       </dl>
 
-      {card.assumptions.length > 0 && !done && (
+      {context.agenda && <Agenda items={context.agenda} />}
+
+      {open && context.clientChoice && (
+        <ChoiceList
+          title="Πελάτης"
+          name={`client-${card.id}`}
+          options={[
+            ...context.clientChoice.options,
+            { id: "new", label: `Νέος πελάτης «${context.clientChoice.newName ?? ""}»` },
+          ]}
+          selected={context.clientChoice.selected}
+          onSelect={(id) => onChoose({ ...choices, clientId: id })}
+        />
+      )}
+
+      {open && context.appointmentChoice && context.appointmentChoice.options.length > 0 && (
+        <ChoiceList
+          title="Ποιο ραντεβού"
+          name={`appt-${card.id}`}
+          options={context.appointmentChoice.options}
+          selected={context.appointmentChoice.selected}
+          onSelect={(id) => onChoose({ ...choices, appointmentId: id })}
+        />
+      )}
+
+      {open && card.assumptions.length > 0 && (
         <ul className="assumptions">
           {card.assumptions.map((a) => (
             <li key={a.field + a.message}>⚠️ {a.message}</li>
           ))}
         </ul>
       )}
+      {open && context.warnings.length > 0 && (
+        <ul className="assumptions">
+          {context.warnings.map((w) => (
+            <li key={w}>⚠️ {w}</li>
+          ))}
+        </ul>
+      )}
+      {open && context.blockers.length > 0 && (
+        <ul className="blockers">
+          {context.blockers.map((b) => (
+            <li key={b}>⛔ {b}</li>
+          ))}
+        </ul>
+      )}
 
-      {!done &&
-        card.questions.map((q) => <QuestionView key={q.field} question={q} onAnswer={(v) => onAnswer(q.field, v)} />)}
+      {open && card.questions.map((q) => <QuestionView key={q.field} question={q} onAnswer={(v) => onAnswer(q.field, v)} />)}
+      {open && editing && <EditForm card={card} onSubmit={(f, v) => (onAnswer(f, v), setEditing(false))} />}
 
-      {!done && editing && <EditForm card={card} onSubmit={(f, v) => (onAnswer(f, v), setEditing(false))} />}
+      {state.error && open && (
+        <p className="error" role="alert">
+          {state.error}
+        </p>
+      )}
+      {state.message && status === "done" && <p className="note">{state.message}</p>}
 
-      {done ? (
-        status === "confirmed" && <p className="note">{CONFIRMED_NOTE[card.type]}</p>
-      ) : (
+      {open && (
         <div className="actions">
-          <button className="primary" disabled={!card.ready} onClick={onConfirm}>
-            {card.type === "create_invoice" ? "Αποδοχή προσχεδίου" : "Επιβεβαίωση"}
+          <button className="primary" disabled={!canConfirm} onClick={onConfirm}>
+            {status === "busy" ? "Περιμένε…" : CONFIRM_LABEL[card.type]}
           </button>
-          <button onClick={() => setEditing((e) => !e)}>{editing ? "Κλείσιμο" : "Διόρθωση"}</button>
-          <button className="danger" onClick={onDiscard}>
+          {card.type !== "query_calendar" && (
+            <button onClick={() => setEditing((e) => !e)} disabled={status === "busy"}>
+              {editing ? "Κλείσιμο" : "Διόρθωση"}
+            </button>
+          )}
+          <button className="danger" onClick={onDiscard} disabled={status === "busy"}>
             Απόρριψη
           </button>
         </div>
@@ -90,13 +148,50 @@ export function ActionCardView({ card, status, onAnswer, onConfirm, onDiscard }:
   );
 }
 
-function QuestionView({
-  question,
-  onAnswer,
-}: {
-  question: ActionCard["questions"][number];
-  onAnswer: (value: string) => void;
+function Agenda({ items }: { items: NonNullable<CardPreview["context"]["agenda"]> }) {
+  if (items.length === 0) return <p className="note">Κανένα ραντεβού σε αυτό το διάστημα.</p>;
+  let lastDay = "";
+  return (
+    <ul className="agenda">
+      {items.map((a) => {
+        const day = dateOf(a.starts_at);
+        const header = day !== lastDay ? <li className="agenda-day">{dayTitle(day)}</li> : null;
+        lastDay = day;
+        return (
+          <Fragment key={a.id}>
+            {header}
+            <li>
+              <strong>{time(a.starts_at)}</strong>–{time(a.ends_at)} {a.client_name}
+              {a.title ? ` · ${a.title}` : ""}
+            </li>
+          </Fragment>
+        );
+      })}
+    </ul>
+  );
+}
+
+function ChoiceList(props: {
+  title: string;
+  name: string;
+  options: Array<{ id: string; label: string }>;
+  selected: string | null;
+  onSelect: (id: string) => void;
 }) {
+  return (
+    <fieldset className="choices">
+      <legend>{props.title}</legend>
+      {props.options.map((o) => (
+        <label key={o.id}>
+          <input type="radio" name={props.name} checked={props.selected === o.id} onChange={() => props.onSelect(o.id)} />
+          {o.label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function QuestionView({ question, onAnswer }: { question: ActionCard["questions"][number]; onAnswer: (value: string) => void }) {
   const [text, setText] = useState("");
   return (
     <div className="question">
@@ -189,7 +284,6 @@ function fieldRows(f: ResolvedFields): Array<[string, string | null]> {
     case "reschedule_appointment":
       return [
         ["Πελάτης", f.client_name],
-        ["Από", [date(f.original_date), f.original_time].filter(Boolean).join(" ") || null],
         ["Νέα ημερομηνία", date(f.new_date)],
         ["Νέα ώρα", f.new_time],
       ];
@@ -197,7 +291,7 @@ function fieldRows(f: ResolvedFields): Array<[string, string | null]> {
       return [
         ["Πελάτης", f.client_name],
         ["Ημερομηνία", date(f.date)],
-        ["Ώρα", f.time],
+        ...(f.time ? [["Ώρα", f.time] as [string, string]] : []),
       ];
     case "query_calendar":
       return [["Περίοδος", f.start && f.end ? (f.start === f.end ? date(f.start) : `${date(f.start)} – ${date(f.end)}`) : null]];

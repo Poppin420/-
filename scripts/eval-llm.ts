@@ -7,7 +7,7 @@
  */
 import { parseCommand } from "../src/intent-parsing";
 import { GroqLLM } from "../src/intent-parsing/llmProvider";
-import { DEFAULT_LLM_MODEL } from "../src/server/handlers";
+import { DEFAULT_LLM_MODEL } from "../src/server/context";
 import { COMMAND_CASES, REFERENCE_NOW, checkCase } from "../tests/fixtures/commands";
 
 const apiKey = process.env.GROQ_API_KEY;

@@ -102,3 +102,48 @@ input, select, textarea {
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 0.85rem; margin-top: 28px; }
 @media (max-width: 420px) { .row { grid-template-columns: 7.5rem 1fr; } }
+a.button {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 10px; padding: 10px 14px; min-height: 44px; text-decoration: none;
+}
+button.small { min-height: 36px; padding: 6px 10px; font-size: 0.9rem; }
+button.link.warn { color: var(--warn-ink); text-align: left; }
+.app.with-nav { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+.tabbar button { border: none; background: none; display: grid; justify-items: center; gap: 2px; font-size: 1.2rem; color: var(--muted); }
+.tabbar button span { font-size: 0.75rem; }
+.tabbar button.active { color: var(--brand); font-weight: 600; }
+.blockers { margin: 10px 0 0; padding: 0; list-style: none; font-size: 0.9rem; color: var(--danger); }
+.choices { border: 1px solid var(--border); border-radius: 10px; margin: 12px 0 0; padding: 8px 12px; display: grid; gap: 6px; }
+.choices legend { color: var(--muted); font-size: 0.9rem; padding: 0 4px; }
+.choices label { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.choices input { width: auto; min-height: 0; }
+.agenda { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.agenda-day { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+.cal-toolbar { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.segmented button { border: none; border-radius: 0; }
+.segmented button.active { background: var(--brand); color: var(--brand-ink); }
+.cal-nav { display: inline-flex; gap: 6px; }
+.cal-title { font-size: 1.1rem; margin: 14px 0 8px; }
+.cal-day h3 { font-size: 0.95rem; color: var(--muted); margin: 14px 0 6px; }
+.cal-day.empty .note { margin: 0; }
+.appts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.appt { display: grid; grid-template-columns: 3.5rem 1fr auto; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+.appt-time { font-weight: 700; display: grid; }
+.appt-time span { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+.appt-body { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.appt-title { color: var(--muted); font-size: 0.9rem; }
+.settings { display: grid; gap: 12px; margin-top: 12px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: grid; gap: 10px; justify-items: start; }
+.panel h2 { font-size: 1.05rem; margin: 0; }
+.panel p { margin: 0; }
+.ok-note { color: var(--ok); }
+.auth { display: grid; gap: 12px; margin-bottom: 12px; }
+.auth label { display: grid; gap: 4px; color: var(--muted); font-size: 0.9rem; }
