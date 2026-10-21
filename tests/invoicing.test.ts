@@ -98,7 +98,8 @@ describe("business profile", () => {
     expect((await call(t.app, "PUT", "/api/profile", { cookie, body: { ...TEST_PROFILE, vat_categories: [{ ...TEST_PROFILE.vat_categories[0]!, rate: "24%" }] } })).status).toBe(400);
     const empty = await call(t.app, "GET", "/api/profile", { cookie });
     expect(empty.json.issues.length).toBeGreaterThan(5);
-    expect(empty.json.spec).toEqual({ version: null, verified: false });
+    // The catalog is loaded (v2.0.2) but unverified, so issuance stays locked.
+    expect(empty.json.spec).toEqual({ version: "2.0.2", verified: false });
     await call(t.app, "PUT", "/api/profile", { cookie, body: TEST_PROFILE });
     expect((await call(t.app, "GET", "/api/profile", { cookie })).json.profile.afm).toBe("094014201");
     const other = await signedIn(t.app);

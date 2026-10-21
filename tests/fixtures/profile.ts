@@ -51,6 +51,7 @@ export const TEST_SPEC: SpecStatus = {
   documentUrl: null,
   retrievedAt: null,
   verified: true,
+  provenance: null,
   documentTypes: [
     { code: "TEST-DOC-R", label: "test", source: "test" },
     { code: "TEST-DOC-I", label: "test", source: "test" },

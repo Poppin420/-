@@ -23,6 +23,8 @@ import { BusinessProfile, loadProfile, profileIssues, saveProfile } from "../inv
 import { deleteDraft, getInvoice, issueChecks, listInvoices } from "../invoicing/invoices";
 import { credentialStatus, deleteCredentials, saveCredentials, CredentialsError } from "../aade/credentials";
 import { SPEC, specReady } from "../aade/spec";
+import { issueInvoice, IssueError } from "../aade/issue";
+import { XsdValidationError } from "../aade/validate";
 
 type Handler = (req: Request, ctx: AppContext, user: SessionUser | null, params: Record<string, string>) => Promise<Response>;
 
@@ -334,8 +336,20 @@ route("POST", "/api/invoices/:id/issue", true, async (req, ctx, user, { id }) =>
   });
   const failed = checks.filter((c) => !c.ok);
   if (failed.length > 0) return json(409, { error: failed.map((c) => c.message).join(" "), checks });
-  // Unreachable until the spec is verified (spec_verified fails); sending is implemented with the XML builder.
-  return error(501, "Η αποστολή στην ΑΑΔΕ δεν έχει υλοποιηθεί ακόμη.");
+  try {
+    const result = await issueInvoice(ctx, user!.id, invoice, profile, {
+      environment: "test",
+      issueDate: typeof body.issueDate === "string" ? body.issueDate : undefined,
+    });
+    const updated = await getInvoice(ctx.db, user!.id, id!);
+    // issued -> 200, explicit rejection -> 409, unknown (timeout/network) -> 202 pending.
+    const status = result.status === "issued" ? 200 : result.status === "rejected" ? 409 : 202;
+    return json(status, { status: result.status, mark: result.mark, uid: result.uid, errors: result.errors, invoice: updated });
+  } catch (e) {
+    if (e instanceof IssueError) return error(e.kind === "numbering" ? 409 : 400, e.message);
+    if (e instanceof XsdValidationError) return error(500, "Το παραγόμενο XML δεν περνά τον έλεγχο XSD· δεν στάλθηκε τίποτα στην ΑΑΔΕ.");
+    throw e;
+  }
 });
 
 function issuerOf(p: BusinessProfile) {
