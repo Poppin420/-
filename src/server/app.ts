@@ -19,6 +19,10 @@ import { listClients } from "../clients/clients";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
+import { BusinessProfile, loadProfile, profileIssues, saveProfile } from "../invoicing/profile";
+import { deleteDraft, getInvoice, issueChecks, listInvoices } from "../invoicing/invoices";
+import { credentialStatus, deleteCredentials, saveCredentials, CredentialsError } from "../aade/credentials";
+import { SPEC, specReady } from "../aade/spec";
 
 type Handler = (req: Request, ctx: AppContext, user: SessionUser | null, params: Record<string, string>) => Promise<Response>;
 
@@ -238,6 +242,106 @@ route("POST", "/api/google/disconnect", true, async (_req, ctx, user) => {
   return json(200, { ok: true });
 });
 
+// --- business profile ------------------------------------------------------------
+
+function specInfo() {
+  return { version: SPEC.version, verified: specReady() };
+}
+
+route("GET", "/api/profile", true, async (_req, ctx, user) => {
+  const profile = await loadProfile(ctx.db, user!.id);
+  return json(200, { profile, issues: profileIssues(profile), spec: specInfo() });
+});
+
+route("PUT", "/api/profile", true, async (req, ctx, user) => {
+  const parsed = BusinessProfile.safeParse(await readJson(req));
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return error(400, `Μη έγκυρο προφίλ${first ? ` (${first.path.join(".")}: ${first.message})` : ""}.`);
+  }
+  await saveProfile(ctx.db, user!.id, parsed.data);
+  return json(200, { profile: parsed.data, issues: profileIssues(parsed.data), spec: specInfo() });
+});
+
+// --- AADE connection ----------------------------------------------------------------
+
+function envParam(env: string | undefined): "test" | "prod" | null {
+  return env === "test" || env === "prod" ? env : null;
+}
+
+route("GET", "/api/aade/credentials", true, async (_req, ctx, user) =>
+  json(200, { credentials: await credentialStatus(ctx, user!.id), encryptionConfigured: !!ctx.config.secretBox, spec: specInfo() }),
+);
+
+route("PUT", "/api/aade/credentials/:env", true, async (req, ctx, user, { env }) => {
+  const environment = envParam(env);
+  if (!environment) return error(404, "Άγνωστο περιβάλλον.");
+  const body = await readJson(req);
+  // Production keys need an explicit, separate confirmation (the UI shows a warning first).
+  if (environment === "prod" && body.confirmProduction !== true) {
+    return error(400, "Για το πραγματικό περιβάλλον απαιτείται ρητή επιβεβαίωση.");
+  }
+  try {
+    await saveCredentials(ctx, user!.id, environment, { username: str(body.username), subscriptionKey: str(body.subscriptionKey) });
+  } catch (e) {
+    if (e instanceof CredentialsError) {
+      return error(e.message.includes("encryption") ? 503 : 400, e.message.includes("encryption") ? "Η κρυπτογράφηση δεν έχει ρυθμιστεί στον server." : "Μη έγκυρα στοιχεία σύνδεσης.");
+    }
+    throw e;
+  }
+  return json(200, { credentials: await credentialStatus(ctx, user!.id) });
+});
+
+route("DELETE", "/api/aade/credentials/:env", true, async (_req, ctx, user, { env }) => {
+  const environment = envParam(env);
+  if (!environment) return error(404, "Άγνωστο περιβάλλον.");
+  await deleteCredentials(ctx, user!.id, environment);
+  return json(200, { credentials: await credentialStatus(ctx, user!.id) });
+});
+
+route("POST", "/api/aade/test/:env", true, async () =>
+  // TODO(spec): call a read-only myDATA endpoint once the official specification is loaded.
+  error(503, "Η δοκιμή σύνδεσης ενεργοποιείται όταν φορτωθεί και επαληθευτεί η επίσημη προδιαγραφή myDATA."),
+);
+
+// --- invoices ---------------------------------------------------------------------
+
+route("GET", "/api/invoices", true, async (_req, ctx, user) => json(200, { invoices: await listInvoices(ctx.db, user!.id) }));
+
+route("GET", "/api/invoices/:id", true, async (_req, ctx, user, { id }) => {
+  const invoice = await getInvoice(ctx.db, user!.id, id!);
+  if (!invoice) return error(404, "Το παραστατικό δεν βρέθηκε.");
+  const profile = await loadProfile(ctx.db, user!.id);
+  const checks = invoice.status === "draft" ? await issueChecks(ctx, user!.id, invoice, profile, { environment: "test" }) : [];
+  return json(200, { invoice, issuer: issuerOf(profile), checks });
+});
+
+route("POST", "/api/invoices/:id/delete", true, async (_req, ctx, user, { id }) => {
+  if (!(await deleteDraft(ctx.db, user!.id, id!))) return error(409, "Μόνο προσχέδια διαγράφονται. Τα εκδοθέντα ακυρώνονται.");
+  return json(200, { ok: true });
+});
+
+route("POST", "/api/invoices/:id/issue", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  // Issuing needs an explicit button press in the UI, never a voice "yes".
+  if (body.confirm !== true) return error(400, "Απαιτείται ρητή επιβεβαίωση με το κουμπί «Έκδοση».");
+  const invoice = await getInvoice(ctx.db, user!.id, id!);
+  if (!invoice) return error(404, "Το παραστατικό δεν βρέθηκε.");
+  const profile = await loadProfile(ctx.db, user!.id);
+  const checks = await issueChecks(ctx, user!.id, invoice, profile, {
+    environment: "test",
+    issueDate: typeof body.issueDate === "string" ? body.issueDate : undefined,
+  });
+  const failed = checks.filter((c) => !c.ok);
+  if (failed.length > 0) return json(409, { error: failed.map((c) => c.message).join(" "), checks });
+  // Unreachable until the spec is verified (spec_verified fails); sending is implemented with the XML builder.
+  return error(501, "Η αποστολή στην ΑΑΔΕ δεν έχει υλοποιηθεί ακόμη.");
+});
+
+function issuerOf(p: BusinessProfile) {
+  return { afm: p.afm, legal_name: p.legal_name, trade_name: p.trade_name, doy: p.doy, address: p.address, branch: p.branch, activity: p.activity };
+}
+
 // --- account / GDPR -----------------------------------------------------------
 
 route("GET", "/api/account/export", true, async (_req, ctx, user) => {
@@ -256,6 +360,11 @@ route("POST", "/api/account/delete", true, async (req, ctx, user) => {
   const password = str((await readJson(req)).password);
   const [row] = await ctx.db.query<{ password_hash: string }>("select password_hash from users where id = $1", [user!.id]);
   if (!row || !(await verifyPassword(password, row.password_hash))) return error(403, "Λάθος κωδικός.");
+  const sent = await ctx.db.query("select 1 from invoices where user_id = $1 and status <> 'draft' and status <> 'rejected' limit 1", [user!.id]);
+  if (sent.length > 0) {
+    // TODO(legal): define the retention process for issued tax documents with a lawyer/accountant.
+    return error(409, "Ο λογαριασμός έχει παραστατικά που στάλθηκαν στην ΑΑΔΕ και πρέπει να διατηρηθούν βάσει φορολογικής νομοθεσίας. Επικοινώνησε μαζί μας για τη διαγραφή.");
+  }
   await disconnect(ctx, user!.id).catch(() => {});
   await ctx.db.query("delete from users where id = $1", [user!.id]);
   return json(200, { ok: true }, { "Set-Cookie": clearSessionCookie(ctx) });

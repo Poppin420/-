@@ -4,6 +4,7 @@ import type { ActionCard, ResolvedFields } from "@core/intent-parsing/resolve";
 import { formatDate, formatEuro } from "@core/intent-parsing/resolve";
 import type { CardPreview, Choices } from "./api";
 import { dayTitle, dateOf, time } from "./format";
+import { InvoiceBreakdown } from "./InvoiceBreakdown";
 
 export type CardStatus = "pending" | "busy" | "done" | "discarded";
 
@@ -37,7 +38,7 @@ const CONFIRM_LABEL: Record<ActionCard["type"], string> = {
   reschedule_appointment: "Μετακίνηση",
   cancel_appointment: "Ακύρωση ραντεβού",
   query_calendar: "Εντάξει",
-  create_invoice: "Αποδοχή προσχεδίου",
+  create_invoice: "Αποθήκευση προσχεδίου",
   create_client: "Προσθήκη πελάτη",
 };
 
@@ -58,8 +59,8 @@ export function ActionCardView({ state, onAnswer, onChoose, onConfirm, onDiscard
 
       {card.type === "create_invoice" && open && (
         <p className="notice">
-          Προσχέδιο. ΦΠΑ, σύνολα, τύπος και αρίθμηση παραστατικού υπολογίζονται από το σύστημα στη φάση (γ), όχι από
-          το LLM.
+          Προσχέδιο. Η έκδοση γίνεται μόνο από την καρτέλα «Παραστατικά» με το κουμπί «Έκδοση», μετά από όλους τους
+          υποχρεωτικούς ελέγχους.
         </p>
       )}
 
@@ -86,6 +87,39 @@ export function ActionCardView({ state, onAnswer, onChoose, onConfirm, onDiscard
           onSelect={(id) => onChoose({ ...choices, clientId: id })}
         />
       )}
+
+      {open && context.invoice && context.invoice.documentTypeChoice.options.length > 1 && (
+        <ChoiceList
+          title="Τύπος παραστατικού"
+          name={`doc-${card.id}`}
+          options={context.invoice.documentTypeChoice.options}
+          selected={context.invoice.documentTypeChoice.selected}
+          onSelect={(id) => onChoose({ ...choices, documentTypeId: id })}
+        />
+      )}
+      {open &&
+        context.invoice?.lines.map((l, i) =>
+          l.options.length > 1 ? (
+            <label key={i} className="inline-select">
+              ΦΠΑ γραμμής {i + 1}
+              <select
+                value={l.vat_category_id}
+                onChange={(e) => {
+                  const ids = context.invoice!.lines.map((x) => x.vat_category_id);
+                  ids[i] = e.target.value;
+                  onChoose({ ...choices, lineVatCategoryIds: ids });
+                }}
+              >
+                {l.options.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null,
+        )}
+      {context.invoice?.calc && <InvoiceBreakdown calc={context.invoice.calc} />}
 
       {open && context.appointmentChoice && context.appointmentChoice.options.length > 0 && (
         <ChoiceList

@@ -60,6 +60,19 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
       </div>
 
       <div className="panel">
+        <h2>Τιμολόγηση</h2>
+        <p className="note">Φορολογικά στοιχεία, κατηγορίες ΦΠΑ, σειρές και κατάλογος υπηρεσιών, καθώς και τα δικά σου στοιχεία σύνδεσης με την ΑΑΔΕ.</p>
+        <div className="actions">
+          <a className="button" href="#/profile">
+            Προφίλ επιχείρησης
+          </a>
+          <a className="button" href="#/aade">
+            Σύνδεση με ΑΑΔΕ
+          </a>
+        </div>
+      </div>
+
+      <div className="panel">
         <h2>Google Calendar</h2>
         {!me.google.available ? (
           <p className="note">Η σύνδεση με Google Calendar δεν έχει ενεργοποιηθεί σε αυτή την εγκατάσταση.</p>

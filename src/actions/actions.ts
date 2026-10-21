@@ -17,6 +17,8 @@ import {
 } from "../calendar/appointments";
 import { googleBusy, syncToGoogle } from "../calendar/google";
 import { DbError, PG_EXCLUSION_VIOLATION, PG_UNIQUE_VIOLATION, type Db } from "../db/db";
+import { loadProfile } from "../invoicing/profile";
+import { insertDraft, planInvoice, type InvoicePlan } from "../invoicing/invoices";
 
 export const NEW_CLIENT = "new";
 
@@ -35,11 +37,15 @@ export interface ActionContext {
   /** For reschedule/cancel: which existing appointment. */
   appointmentChoice?: Choice;
   agenda?: Appointment[];
+  /** For invoices: document type, VAT per line and the deterministic calculation. */
+  invoice?: InvoicePlan;
 }
 
 export interface Choices {
   clientId?: string;
   appointmentId?: string;
+  documentTypeId?: string;
+  lineVatCategoryIds?: string[];
 }
 
 export interface CardPreview {
@@ -55,7 +61,14 @@ export const CardInput = z.object({
   }),
   transcript: z.string().max(MAX_TRANSCRIPT_CHARS),
   answer: z.object({ field: z.string().max(100), value: z.string().max(500) }).optional(),
-  choices: z.object({ clientId: z.string().max(64).optional(), appointmentId: z.string().max(64).optional() }).default({}),
+  choices: z
+    .object({
+      clientId: z.string().max(64).optional(),
+      appointmentId: z.string().max(64).optional(),
+      documentTypeId: z.string().max(40).optional(),
+      lineVatCategoryIds: z.array(z.string().max(40)).max(50).optional(),
+    })
+    .default({}),
 });
 export type CardInput = z.infer<typeof CardInput>;
 
@@ -72,20 +85,7 @@ export async function previewCard(ctx: AppContext, userId: string, card: ActionC
 
   switch (f.type) {
     case "create_appointment": {
-      if (f.client_name) {
-        const matches = matchClients(f.client_name, await listClients(ctx.db, userId));
-        const options = matches.map((c) => ({ id: c.id, label: c.name }));
-        const selected =
-          choices.clientId && (choices.clientId === NEW_CLIENT || options.some((o) => o.id === choices.clientId))
-            ? choices.clientId
-            : matches.length === 1
-              ? matches[0]!.id
-              : matches.length === 0
-                ? NEW_CLIENT
-                : null;
-        context.clientChoice = { options, selected, newName: f.client_name };
-        if (selected === null) context.blockers.push(`Βρέθηκαν ${matches.length} πελάτες για «${f.client_name}». Διάλεξε ποιος είναι.`);
-      }
+      if (f.client_name) await chooseClient(ctx, userId, f.client_name, choices, context);
       if (f.start && f.duration_minutes) {
         const start = new Date(f.start);
         const end = new Date(start.getTime() + f.duration_minutes * 60_000);
@@ -131,10 +131,44 @@ export async function previewCard(ctx: AppContext, userId: string, card: ActionC
         }
       }
       break;
-    case "create_invoice":
+    case "create_invoice": {
+      const clients = f.client_name ? await chooseClient(ctx, userId, f.client_name, choices, context) : [];
+      const selected = context.clientChoice?.selected;
+      const client = selected && selected !== NEW_CLIENT ? (clients.find((c) => c.id === selected) ?? null) : null;
+      const profile = await loadProfile(ctx.db, userId);
+      context.invoice = planInvoice(
+        f,
+        profile,
+        { client, newName: selected === NEW_CLIENT ? f.client_name : null },
+        choices,
+        context.blockers,
+        context.warnings,
+      );
+      if (card.ready && context.blockers.length === 0 && !context.invoice.draft) {
+        context.blockers.push("Δεν μπορεί να συνταχθεί προσχέδιο με τα τρέχοντα στοιχεία.");
+      }
       break;
+    }
   }
   return { card, context };
+}
+
+/** Resolves the spoken name to an existing client, a new one, or asks when several match. */
+async function chooseClient(ctx: AppContext, userId: string, name: string, choices: Choices, context: ActionContext) {
+  const clients = await listClients(ctx.db, userId);
+  const matches = matchClients(name, clients);
+  const options = matches.map((c) => ({ id: c.id, label: c.vat_number ? `${c.name} (ΑΦΜ ${c.vat_number})` : c.name }));
+  const selected =
+    choices.clientId && (choices.clientId === NEW_CLIENT || options.some((o) => o.id === choices.clientId))
+      ? choices.clientId
+      : matches.length === 1
+        ? matches[0]!.id
+        : matches.length === 0
+          ? NEW_CLIENT
+          : null;
+  context.clientChoice = { options, selected, newName: name };
+  if (selected === null) context.blockers.push(`Βρέθηκαν ${matches.length} πελάτες για «${name}». Διάλεξε ποιος είναι.`);
+  return matches;
 }
 
 /** Double-booking and past-time checks for a proposed slot. Internal overlaps block; Google ones warn. */
@@ -172,6 +206,7 @@ export interface ExecutionResult {
   message: string;
   appointment?: Appointment;
   client?: { id: string; name: string };
+  invoiceId?: string;
 }
 
 /**
@@ -269,8 +304,18 @@ async function applyCard(tx: Db, userId: string, card: ActionCard, context: Acti
     }
     case "query_calendar":
       return { message: "Εμφανίστηκε το πρόγραμμα." };
-    case "create_invoice":
-      return { message: "Το προσχέδιο κρατήθηκε. Η έκδοση παραστατικών ενεργοποιείται στη φάση (γ)." };
+    case "create_invoice": {
+      const draft = structuredClone(context.invoice!.draft!);
+      if (context.clientChoice?.selected === NEW_CLIENT) {
+        const client = await createClient(tx, userId, { name: draft.customer.name });
+        draft.customer.client_id = client.id;
+      }
+      const invoice = await insertDraft(tx, userId, draft);
+      return {
+        message: "Αποθηκεύτηκε προσχέδιο. Η έκδοση γίνεται από την καρτέλα «Παραστατικά» με το κουμπί «Έκδοση».",
+        invoiceId: invoice.id,
+      };
+    }
   }
 }
 
