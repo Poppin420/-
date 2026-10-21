@@ -1,0 +1,9 @@
+node_modules/
+dist/
+web/dist/
+.netlify/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
