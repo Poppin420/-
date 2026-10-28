@@ -1,0 +1,24 @@
+# Render blueprint (free tier). In Render: New → Blueprint → pick this repo.
+# Then set the secret env vars below in the dashboard (they are not stored here).
+services:
+  - type: web
+    name: voice-business-assistant
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # APP_BASE_URL is filled automatically from Render's external URL.
+      - key: GROQ_LLM_MODEL
+        value: qwen/qwen3.8-27b
+      # Set these in the dashboard (secret, not committed):
+      - key: DATABASE_URL          # Neon pooled connection string
+        sync: false
+      - key: DATA_ENCRYPTION_KEY   # openssl rand -base64 32 — encrypts myDATA/Google keys
+        sync: false
+      - key: SIGNUP_CODE           # invite code for sign-ups (>= 8 chars)
+        sync: false
+      - key: GROQ_API_KEY          # from console.groq.com (voice)
+        sync: false
