@@ -169,6 +169,14 @@ create trigger invoices_protect before update or delete on invoices
   for each row execute function protect_invoices();
 `,
   },
+  {
+    id: "003_client_nickname",
+    sql: `
+-- Per-user nickname for a client ("Γιώργος σίδερα"): used for voice matching,
+-- never sent to AADE (the official name/VAT is used there).
+alter table clients add column nickname text check (nickname is null or length(nickname) between 1 and 80);
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {

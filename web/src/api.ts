@@ -110,6 +110,10 @@ export const api = {
     request<{ credentials: Record<"test" | "prod", CredentialStatus> }>("DELETE", `/api/aade/credentials/${env}`),
   testAade: (env: "test" | "prod") => request("POST", `/api/aade/test/${env}`),
 
+  clients: () => request<{ clients: Client[] }>("GET", "/api/clients"),
+  createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
+  updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
+
   invoices: () => request<{ invoices: InvoiceRow[] }>("GET", "/api/invoices"),
   invoice: (id: string) => request<InvoiceDetail>("GET", `/api/invoices/${id}`),
   deleteInvoice: (id: string) => request("POST", `/api/invoices/${id}/delete`),

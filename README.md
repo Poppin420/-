@@ -72,7 +72,7 @@ src/
   actions/actions.ts      Card preview (double booking, client match) and confirmed execution
   calendar/appointments.ts  Appointments in PostgreSQL, Europe/Athens
   calendar/google.ts      Google Calendar OAuth (PKCE) and one-way sync
-  clients/clients.ts      Clients and name matching across Greek cases
+  clients/clients.ts      Clients, per-user nicknames, name matching across Greek cases
   auth/auth.ts            Accounts, sessions, login throttling
   security/               scrypt passwords, AES-256-GCM secret box
   invoicing/calc.ts       Decimal arithmetic: VAT, rounding, withholdings, totals

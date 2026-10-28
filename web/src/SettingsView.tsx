@@ -69,6 +69,9 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
           <a className="button" href="#/aade">
             Σύνδεση με ΑΑΔΕ
           </a>
+          <a className="button" href="#/clients">
+            Πελάτες
+          </a>
         </div>
       </div>
 

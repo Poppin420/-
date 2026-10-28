@@ -15,7 +15,7 @@ import { MAX_AUDIO_BYTES } from "../transcription/groqWhisper";
 import { CardInput, executeCard, previewCard, rebuildCard, type CardPreview } from "../actions/actions";
 import { cancelAppointment, getAppointment, listAppointments } from "../calendar/appointments";
 import { disconnect, finishConnect, isConnected, startConnect, syncToGoogle } from "../calendar/google";
-import { listClients } from "../clients/clients";
+import { createClient, getClient, listClients, updateClient, ClientError } from "../clients/clients";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -215,6 +215,44 @@ route("POST", "/api/appointments/:id/sync", true, async (_req, ctx, user, { id }
 });
 
 route("GET", "/api/clients", true, async (_req, ctx, user) => json(200, { clients: await listClients(ctx.db, user!.id) }));
+
+// A field is updated when it is a string (or null to clear it), left as-is when absent.
+const optField = (v: unknown): string | null | undefined => (typeof v === "string" ? v : v === null ? null : undefined);
+
+route("POST", "/api/clients", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  try {
+    const client = await createClient(ctx.db, user!.id, {
+      name: str(body.name),
+      nickname: optField(body.nickname),
+      vat_number: optField(body.vat_number),
+      phone: optField(body.phone),
+      email: optField(body.email),
+    });
+    return json(201, { client });
+  } catch (e) {
+    if (e instanceof ClientError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("PUT", "/api/clients/:id", true, async (req, ctx, user, { id }) => {
+  if (!(await getClient(ctx.db, user!.id, id!))) return error(404, "Ο πελάτης δεν βρέθηκε.");
+  const body = await readJson(req);
+  try {
+    const client = await updateClient(ctx.db, user!.id, id!, {
+      name: optField(body.name) ?? undefined,
+      nickname: optField(body.nickname),
+      vat_number: optField(body.vat_number),
+      phone: optField(body.phone),
+      email: optField(body.email),
+    });
+    return json(200, { client });
+  } catch (e) {
+    if (e instanceof ClientError) return error(400, e.message);
+    throw e;
+  }
+});
 
 // --- Google Calendar ----------------------------------------------------------
 

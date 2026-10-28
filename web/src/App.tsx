@@ -7,12 +7,13 @@ import { SettingsView } from "./SettingsView";
 import { InvoicesView } from "./InvoicesView";
 import { ProfileView } from "./ProfileView";
 import { AadeView } from "./AadeView";
+import { ClientsView } from "./ClientsView";
 
-type Tab = "assistant" | "calendar" | "invoices" | "settings" | "profile" | "aade";
+type Tab = "assistant" | "calendar" | "invoices" | "settings" | "profile" | "aade" | "clients";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["calendar", "invoices", "settings", "profile", "aade"];
+  const routes: Tab[] = ["calendar", "invoices", "settings", "profile", "aade", "clients"];
   const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "assistant";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
@@ -64,6 +65,7 @@ export function App() {
       )}
       {tab === "profile" && <ProfileView />}
       {tab === "aade" && <AadeView />}
+      {tab === "clients" && <ClientsView />}
 
       <nav className="tabbar" aria-label="Κύρια πλοήγηση">
         <button className={tab === "assistant" ? "active" : ""} onClick={() => go("assistant")}>
@@ -75,7 +77,7 @@ export function App() {
         <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
           🧾<span>Παραστατικά</span>
         </button>
-        <button className={tab === "settings" || tab === "profile" || tab === "aade" ? "active" : ""} onClick={() => go("settings")}>
+        <button className={["settings", "profile", "aade", "clients"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
           ⚙️<span>Ρυθμίσεις</span>
         </button>
       </nav>
