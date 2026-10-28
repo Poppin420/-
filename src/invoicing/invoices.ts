@@ -345,7 +345,7 @@ export async function issueChecks(
 
   const todayCtx = DateTime.fromJSDate(ctx.now()).setZone(ZONE).toISODate()!;
   const issueDate = opts.issueDate ?? todayCtx;
-  // TODO(spec): replace "today only" with the window the official specification allows.
+  // Accountant-confirmed (2026-10-28): myDATA is real time, so only today's date is allowed.
   check(
     "issue_date",
     /^\d{4}-\d{2}-\d{2}$/.test(issueDate) && DateTime.fromISO(issueDate).isValid && issueDate === todayCtx,

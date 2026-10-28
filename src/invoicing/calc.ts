@@ -3,9 +3,9 @@ import Decimal from "decimal.js";
 /**
  * Deterministic invoice arithmetic. Everything is Decimal; no floating point.
  *
- * Assumptions to be confirmed against the official myDATA specification and
- * by an accountant (README, Φ11–Φ14):
- *  - amounts are rounded per line to 2 decimals, half away from zero;
+ * Rounding and tax rules confirmed by an accountant on 2026-10-28
+ * (README, Φ11–Φ14); still to be checked end to end against the myDATA sandbox:
+ *  - amounts are rounded per line to 2 decimals, half away from zero (half-up);
  *  - document totals are the sums of the rounded line values, so
  *    net + VAT = gross holds exactly per line and in total;
  *  - when a price includes VAT, the spoken gross is kept exactly and
