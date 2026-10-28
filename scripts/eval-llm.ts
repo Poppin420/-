@@ -17,6 +17,8 @@ if (!apiKey) {
 }
 const model = process.env.GROQ_LLM_MODEL || DEFAULT_LLM_MODEL;
 const llm = new GroqLLM({ apiKey, model });
+// Free-tier Groq rate-limits bursts; GROQ_EVAL_DELAY_MS spaces the calls out.
+const delayMs = Number(process.env.GROQ_EVAL_DELAY_MS ?? 0);
 
 let failed = 0;
 for (const c of COMMAND_CASES) {
@@ -26,6 +28,7 @@ for (const c of COMMAND_CASES) {
   } catch (e) {
     problems = [`error: ${(e as Error).name}`];
   }
+  if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   if (problems.length > 0) failed++;
   console.log(`${problems.length === 0 ? "PASS" : "FAIL"}  ${c.name}`);
   for (const p of problems) console.log(`      ${p}`);
