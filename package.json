@@ -1,0 +1,43 @@
+{
+  "name": "voice-business-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:sandbox": "NODE_USE_ENV_PROXY=1 MYDATA_SANDBOX=1 vitest run tests/aade.sandbox.test.ts",
+    "typecheck": "tsc --noEmit",
+    "eval:llm": "tsx scripts/eval-llm.ts",
+    "db:migrate": "tsx scripts/migrate.ts"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0",
+    "luxon": "3.7.2",
+    "pg": "^8.23.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "xmllint-wasm": "^4.0.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/luxon": "3.7.1",
+    "@types/node": "22.18.0",
+    "@types/pg": "^8.23.1",
+    "@types/react": "19.1.12",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.4",
+    "fast-check": "^4.10.2",
+    "tsx": "4.20.5",
+    "typescript": "5.8.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.11"
+  }
+}
