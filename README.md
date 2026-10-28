@@ -18,7 +18,7 @@ Mobile-first εφαρμογή (PWA) για Έλληνες ελεύθερους �
 
 Τι έχει επαληθευτεί:
 
-- 288 tests:
+- 294 tests:
   - parsers αριθμών, ποσών, ωρών και ημερομηνιών, και 35 σενάρια ελληνικών εντολών,
   - integration tests του API πάνω σε πραγματική PostgreSQL (PGlite, μέσα στη διεργασία): σύνδεση, διπλοκράτηση,
     ταυτόχρονες κρατήσεις, επανάληψη επιβεβαίωσης, απομόνωση χρηστών, Google με προσομοιωμένα endpoints, εξαγωγή
@@ -180,6 +180,8 @@ npm install
 npm test           # unit + integration tests (in-process PostgreSQL, no external services)
 npm run typecheck
 npm run build
+# Live myDATA sandbox round-trip (opt-in, needs test keys as a Network secret + MYDATA_TEST_AFM):
+MYDATA_TEST_AFM=... npm run test:sandbox
 ```
 
 ### Ανάπτυξη στο Netlify
@@ -287,8 +289,9 @@ GROQ_API_KEY=... npm run eval:llm
    εγκρίνει λογιστής. Δες `src/aade/xsd/v2.0.2/PROVENANCE.md`.
 2. **Καταγραφή τρόπου πληρωμής στο UI.** Το sandbox απαιτεί `paymentMethods` για τη λιανική· ο builder το
    υποστηρίζει και το endpoint το απαιτεί, αλλά η κάρτα/ροή πρέπει να το ζητά από τον χρήστη (μετρητά, POS, κ.λπ.).
-3. **Αυτοματοποιημένο integration test στο sandbox** μέσα στη σουίτα (σήμερα ο κύκλος επιβεβαιώθηκε χειροκίνητα·
-   τα κλειδιά μπαίνουν ως secrets ώστε να τρέχει στο CI).
+3. **Integration test στο sandbox** — υπάρχει και περνά (`npm run test:sandbox`): αυθεντικοποίηση, έκδοση ΑΠΥ
+   που γίνεται δεκτή, και ακύρωση. Χρειάζεται τα δοκιμαστικά κλειδιά ως Network secret (headers `aade-user-id`,
+   `ocp-apim-subscription-key` στο `mydataapidev.aade.gr`) και `MYDATA_TEST_AFM`. Παρακάμπτεται στο κανονικό `npm test`.
 4. **Πιστοποιημένος πάροχος ηλεκτρονικής τιμολόγησης** για τα B2B: ποιος πάροχος, με ποιο API, με ποιον τρόπο
    σύνδεσης ανά χρήστη. Μέχρι τότε εκδίδονται απευθείας μόνο παραστατικά προς ιδιώτες (Φ1, Φ2).
 5. **Έλεγχος παρακράτησης στο sandbox** (Φ14): η κατανομή ανά γραμμή και τα σύνολα πρέπει να γίνουν δεκτά σε

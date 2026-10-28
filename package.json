@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:sandbox": "NODE_USE_ENV_PROXY=1 MYDATA_SANDBOX=1 vitest run tests/aade.sandbox.test.ts",
     "typecheck": "tsc --noEmit",
     "eval:llm": "tsx scripts/eval-llm.ts",
     "db:migrate": "tsx scripts/migrate.ts"

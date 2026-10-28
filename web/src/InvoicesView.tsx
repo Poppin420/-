@@ -3,6 +3,17 @@ import { api, ApiError, type InvoiceDetail, type InvoiceRow } from "./api";
 import { InvoiceBreakdown } from "./InvoiceBreakdown";
 import { formatEuro } from "@core/intent-parsing/resolve";
 
+const PAYMENT_METHODS: Array<{ code: string; label: string }> = [
+  { code: "3", label: "Μετρητά" },
+  { code: "7", label: "POS / κάρτα" },
+  { code: "1", label: "Επαγ. λογαριασμός ημεδαπής" },
+  { code: "2", label: "Επαγ. λογαριασμός αλλοδαπής" },
+  { code: "4", label: "Επιταγή" },
+  { code: "5", label: "Επί πιστώσει" },
+  { code: "6", label: "Web banking" },
+  { code: "8", label: "IRIS" },
+];
+
 const STATUS: Record<InvoiceRow["status"], string> = {
   draft: "Προσχέδιο",
   sending: "Αποστέλλεται",
@@ -58,6 +69,7 @@ function InvoiceDetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paymentType, setPaymentType] = useState("3");
 
   const load = useCallback(async () => {
     try {
@@ -78,7 +90,7 @@ function InvoiceDetailView({ id, onBack }: { id: string; onBack: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api.issueInvoice(id);
+      await api.issueInvoice(id, paymentType);
       await load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Η έκδοση απέτυχε.");
@@ -141,6 +153,16 @@ function InvoiceDetailView({ id, onBack }: { id: string; onBack: () => void }) {
                 {error}
               </p>
             )}
+            <label className="payment-method">
+              Τρόπος πληρωμής
+              <select value={paymentType} onChange={(e) => setPaymentType(e.target.value)} disabled={busy}>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="actions">
               <button className="primary" disabled={!allOk || busy} onClick={issue}>
                 Έκδοση

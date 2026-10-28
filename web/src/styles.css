@@ -173,3 +173,5 @@ label.check input { width: auto; min-height: 0; }
 .client-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .client-row button { white-space: nowrap; }
 .nickname { color: var(--muted); }
+
+.payment-method { display: grid; gap: 4px; color: var(--muted); font-size: 0.9rem; margin: 10px 0; }

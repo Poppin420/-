@@ -117,7 +117,8 @@ export const api = {
   invoices: () => request<{ invoices: InvoiceRow[] }>("GET", "/api/invoices"),
   invoice: (id: string) => request<InvoiceDetail>("GET", `/api/invoices/${id}`),
   deleteInvoice: (id: string) => request("POST", `/api/invoices/${id}/delete`),
-  issueInvoice: (id: string) => request<{ checks: CheckResult[] }>("POST", `/api/invoices/${id}/issue`, { confirm: true }),
+  issueInvoice: (id: string, paymentMethod: string) =>
+    request<{ checks: CheckResult[] }>("POST", `/api/invoices/${id}/issue`, { confirm: true, paymentMethod }),
 };
 
 function cardInput(p: CardPreview) {
