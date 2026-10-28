@@ -73,6 +73,15 @@ describe("InvoicesDoc XML generation", () => {
     expect(xml).toContain("<icls:classificationType>E3_561_003</icls:classificationType>");
   });
 
+  it("emits paymentMethods (payable amount) and never itemDescr", async () => {
+    const xml = buildInvoiceXml({ issuer: ISSUER, draft: makeDraft({ counterpart: "consumer" }), ...opts, paymentMethod: { type: "3" } });
+    expect((await validateXml(xml)).valid).toBe(true);
+    expect(xml).toContain("<paymentMethods>");
+    expect(xml).toContain("<type>3</type>");
+    expect(xml).toContain("<amount>124.00</amount>");
+    expect(xml).not.toContain("itemDescr");
+  });
+
   it("builds a valid business document with a counterpart AFM", async () => {
     const xml = buildInvoiceXml({ issuer: ISSUER, draft: makeDraft({ counterpart: "business", vatNumber: "123456789" }), ...opts });
     const res = await validateXml(xml);

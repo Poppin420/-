@@ -31,7 +31,7 @@ describe("issueInvoice end to end", () => {
   it("issues a consumer document and stores mark, uid, number and xml", async () => {
     const userId = await freshUser();
     const row = await insertDraft(db, userId, makeDraft({ counterpart: "consumer" }));
-    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", issueDate: "2026-10-21", fetchImpl: respond(SUCCESS) });
+    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", issueDate: "2026-10-21", paymentMethod: { type: "3" }, fetchImpl: respond(SUCCESS) });
     expect(result.status).toBe("issued");
     expect(result.mark).toBe("400777");
 
@@ -42,13 +42,14 @@ describe("issueInvoice end to end", () => {
     expect(stored!.number).toBe(1);
     expect(stored!.issue_date).toBe("2026-10-21");
     expect(stored!.request_xml).toContain("<InvoicesDoc");
+    expect(stored!.request_xml).toContain("<paymentMethods>");
     expect(await nextNumber(db, userId, "test", "doc", "Α")).toBe(2);
   });
 
   it("frees the number when the document is rejected (Φ4)", async () => {
     const userId = await freshUser();
     const row = await insertDraft(db, userId, makeDraft({ counterpart: "consumer" }));
-    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", fetchImpl: respond(REJECT) });
+    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", paymentMethod: { type: "3" }, fetchImpl: respond(REJECT) });
     expect(result.status).toBe("rejected");
     const stored = await getInvoice(db, userId, row.id);
     expect(stored!.status).toBe("rejected");
@@ -63,7 +64,7 @@ describe("issueInvoice end to end", () => {
     const boom = (async () => {
       throw new Error("ECONNRESET");
     }) as typeof fetch;
-    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", fetchImpl: boom });
+    const result = await issueInvoice(ctx, userId, row, ISSUER, { environment: "test", paymentMethod: { type: "3" }, fetchImpl: boom });
     expect(result.status).toBe("unknown");
     const stored = await getInvoice(db, userId, row.id);
     expect(stored!.status).toBe("unknown");

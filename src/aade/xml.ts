@@ -39,6 +39,12 @@ export interface InvoiceXmlInput {
   issueDate: string;
   /** ISO 4217; EUR by default. */
   currency?: string;
+  /**
+   * Payment method (PaymentMethodType code, 1–8; e.g. 3 = cash, 7 = POS).
+   * Mandatory for retail documents (myDATA error 204 otherwise); the amount is
+   * the payable total. TODO(app): capture this from the user per document.
+   */
+  paymentMethod?: { type: string };
 }
 
 export class InvoiceXmlError extends Error {
@@ -141,13 +147,22 @@ export function buildInvoiceXml(input: InvoiceXmlInput): string {
         h.leaf("invoiceType", draft.document_type.aade_code);
         h.leaf("currency", currency);
       });
-      // One detail row per line.
+      // Payment method (mandatory for retail documents). The amount is the payable total.
+      if (input.paymentMethod) {
+        inv.node("paymentMethods", "", (pm) => {
+          pm.node("paymentMethodDetails", "", (det) => {
+            det.leaf("type", input.paymentMethod!.type);
+            det.leaf("amount", calc.totals.payable);
+          });
+        });
+      }
+      // One detail row per line. itemDescr is deliberately omitted: myDATA forbids
+      // it for retail types (error 247), and AADE does not require it.
       calc.lines.forEach((cl, i) => {
         const dl = draft.lines[i]!;
         if (!dl.vat_aade_code) throw new InvoiceXmlError(`line ${i + 1}: VAT category AADE code is missing`);
         inv.node("invoiceDetails", "", (row) => {
           row.leaf("lineNumber", i + 1);
-          if (dl.description.trim()) row.leaf("itemDescr", dl.description.trim().slice(0, 300));
           row.leaf("netValue", cl.net);
           row.leaf("vatCategory", dl.vat_aade_code);
           row.leaf("vatAmount", cl.vat);

@@ -336,10 +336,14 @@ route("POST", "/api/invoices/:id/issue", true, async (req, ctx, user, { id }) =>
   });
   const failed = checks.filter((c) => !c.ok);
   if (failed.length > 0) return json(409, { error: failed.map((c) => c.message).join(" "), checks });
+  // Payment method is mandatory for myDATA (required for retail types; AADE error 204).
+  const paymentType = typeof body.paymentMethod === "string" ? body.paymentMethod : undefined;
+  if (!paymentType || !/^[1-8]$/.test(paymentType)) return error(400, "Διάλεξε τρόπο πληρωμής.");
   try {
     const result = await issueInvoice(ctx, user!.id, invoice, profile, {
       environment: "test",
       issueDate: typeof body.issueDate === "string" ? body.issueDate : undefined,
+      paymentMethod: { type: paymentType },
     });
     const updated = await getInvoice(ctx.db, user!.id, id!);
     // issued -> 200, explicit rejection -> 409, unknown (timeout/network) -> 202 pending.

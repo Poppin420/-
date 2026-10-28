@@ -44,7 +44,7 @@ export async function issueInvoice(
   userId: string,
   invoice: InvoiceRow,
   profile: BusinessProfile,
-  opts: { environment: AadeEnvironment; issueDate?: string; fetchImpl?: typeof fetch },
+  opts: { environment: AadeEnvironment; issueDate?: string; paymentMethod?: { type: string }; fetchImpl?: typeof fetch },
 ): Promise<IssueResult> {
   const env = opts.environment;
   const creds = await loadCredentials(ctx, userId, env).catch(() => null);
@@ -62,6 +62,7 @@ export async function issueInvoice(
     series,
     aa,
     issueDate,
+    paymentMethod: opts.paymentMethod,
   });
   // Defense in depth: never transmit XML that does not conform to the XSD.
   await assertValidXml(xml);
