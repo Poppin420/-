@@ -98,8 +98,8 @@ describe("business profile", () => {
     expect((await call(t.app, "PUT", "/api/profile", { cookie, body: { ...TEST_PROFILE, vat_categories: [{ ...TEST_PROFILE.vat_categories[0]!, rate: "24%" }] } })).status).toBe(400);
     const empty = await call(t.app, "GET", "/api/profile", { cookie });
     expect(empty.json.issues.length).toBeGreaterThan(5);
-    // The catalog is loaded (v2.0.2) but unverified, so issuance stays locked.
-    expect(empty.json.spec).toEqual({ version: "2.0.2", verified: false });
+    // The catalog is loaded and verified, so issuance is unlocked (still test-only).
+    expect(empty.json.spec).toEqual({ version: "2.0.2", verified: true });
     await call(t.app, "PUT", "/api/profile", { cookie, body: TEST_PROFILE });
     expect((await call(t.app, "GET", "/api/profile", { cookie })).json.profile.afm).toBe("094014201");
     const other = await signedIn(t.app);
@@ -204,15 +204,18 @@ describe("invoice cards and drafts", () => {
 });
 
 describe("issuance gate", () => {
-  it("requires an explicit confirmation and is locked while the spec is not verified", async () => {
+  it("requires explicit confirmation; the spec gate is now satisfied", async () => {
     const { t, cookie } = await setup();
     const id = await draftReceipt(t, cookie);
+    // No confirmation → blocked.
     expect((await call(t.app, "POST", `/api/invoices/${id}/issue`, { cookie, body: {} })).status).toBe(400);
+    // Confirmed, but this user has no AADE credentials yet, so it is still blocked —
+    // by the credentials check, not by spec_verified, which now passes.
     const res = await call(t.app, "POST", `/api/invoices/${id}/issue`, { cookie, body: { confirm: true } });
     expect(res.status).toBe(409);
-    const spec = res.json.checks.find((c: { code: string }) => c.code === "spec_verified");
-    expect(spec.ok).toBe(false);
-    expect(SPEC.verified).toBe(false);
+    expect(res.json.checks.find((c: { code: string }) => c.code === "spec_verified").ok).toBe(true);
+    expect(res.json.checks.find((c: { code: string }) => c.code === "credentials").ok).toBe(false);
+    expect(SPEC.verified).toBe(true);
   });
 
   /** Builds a draft where every check passes (with the fake verified spec), then breaks one thing at a time. */
@@ -234,9 +237,10 @@ describe("issuance gate", () => {
     expect(failing(await run())).toEqual([]);
   });
 
-  it("spec_verified: blocks with the real (unloaded) spec", async () => {
+  it("spec_verified: passes with the loaded, verified catalog", async () => {
     const { t, userId, invoice } = await passingCase();
-    expect(failing(await issueChecks(t.ctx, userId, invoice, TEST_PROFILE, { environment: "test" }))).toEqual(["spec_verified"]);
+    // Uses the real default SPEC (verified) rather than TEST_SPEC: every check passes.
+    expect(failing(await issueChecks(t.ctx, userId, invoice, TEST_PROFILE, { environment: "test" }))).toEqual([]);
   });
 
   it("profile_complete: blocks without accountant review", async () => {

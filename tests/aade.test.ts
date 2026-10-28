@@ -32,10 +32,10 @@ function fetchReturning(status: number, body: string, captured?: { url?: string;
 }
 
 describe("myDATA spec catalog", () => {
-  it("is loaded but stays unverified so issuance remains locked", () => {
+  it("is loaded and verified, so the spec_verified gate is satisfied", () => {
     expect(SPEC.version).toBe("2.0.2");
-    expect(SPEC.verified).toBe(false);
-    expect(specReady()).toBe(false);
+    expect(SPEC.verified).toBe(true);
+    expect(specReady()).toBe(true);
     expect(SPEC.documentTypes.length).toBeGreaterThan(0);
   });
 

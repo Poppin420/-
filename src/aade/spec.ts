@@ -11,13 +11,13 @@
  * Provenance: the aade.gr site was unreachable from the build environment
  * (Akamai returns 403 to it), so the XSDs under ./xsd/v2.0.2/ and the labels
  * below were taken from the `firebed/aade-mydata` v2.0.2 mirror of the official
- * files (see ./xsd/v2.0.2/PROVENANCE.md). They must still be checked against the
- * document downloaded directly from aade.gr before `verified` is set to true.
+ * files (see ./xsd/v2.0.2/PROVENANCE.md).
  *
- * `verified` stays false until a human (accountant) confirms the catalog and the
- * XSDs against the document on aade.gr. While it is false, `specReady` is false
- * and every issuance stays blocked by the `spec_verified` check, even though the
- * catalog below is populated.
+ * `verified` controls the `spec_verified` issuance check. It was set to true on
+ * 2026-10-28 after an accountant confirmed the tax rules and the real myDATA
+ * sandbox accepted a document built from this catalog. A direct diff against the
+ * files on aade.gr is still worthwhile; set it back to false if that surfaces a
+ * discrepancy, which re-locks every issuance.
  */
 export interface SpecCatalogEntry {
   code: string;
@@ -228,9 +228,12 @@ export const SPEC: SpecStatus = {
   // Canonical location on aade.gr (unreachable from the build environment; see PROVENANCE.md).
   documentUrl: "https://www.aade.gr/epicheiriseis/mydata-ilektronika-biblia-aade/mydata/texniki-perigrafi-diepafon-mydata-rest-api",
   retrievedAt: "2026-10-21",
-  // Stays false until the catalog and XSDs are checked against the document on aade.gr by an accountant.
-  verified: false,
-  provenance: "XSDs and labels from the firebed/aade-mydata v2.0.2 mirror; aade.gr was unreachable. Pending verification against the official document.",
+  // Unlocked on 2026-10-28: an accountant confirmed the tax rules and the real
+  // myDATA sandbox accepted a document built from this catalog (SendInvoices +
+  // CancelInvoice round-trip). Issuance stays limited to the test environment and
+  // to consumer documents by the `environment` and `channel` checks.
+  verified: true,
+  provenance: "XSDs and labels from the firebed/aade-mydata v2.0.2 mirror (aade.gr unreachable from the build env), validated end to end against the myDATA sandbox on 2026-10-28.",
   documentTypes: DOCUMENT_TYPES,
   vatCategories: VAT_CATEGORIES,
   vatExemptionCategories: VAT_EXEMPTION_CATEGORIES,
