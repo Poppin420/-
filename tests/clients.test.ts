@@ -42,6 +42,25 @@ describe("clients API", () => {
     expect((await call(app, "PUT", `/api/clients/${id}`, { cookie, body: { nickname: "" } })).json.client.nickname).toBe(null);
   });
 
+  it("bulk-imports clients, skipping empty names and duplicates", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    const body = {
+      clients: [
+        { name: "Α Εργαλεία", vat_number: "094014201", plate: "αβγ-1" },
+        { name: "Β Μοτέρ" },
+        { name: "" },
+        { name: "Α Εργαλεία", vat_number: "094014201" },
+      ],
+    };
+    const res = await call(app, "POST", "/api/clients/import", { cookie, body });
+    expect(res.status).toBe(200);
+    expect(res.json.imported).toBe(2);
+    expect(res.json.skipped).toBe(2);
+    const list = (await call(app, "GET", "/api/clients", { cookie })).json.clients;
+    expect(list.find((c: { name: string; plate: string | null }) => c.name === "Α Εργαλεία")?.plate).toBe("ΑΒΓ-1");
+  });
+
   it("rejects an invalid AFM", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);

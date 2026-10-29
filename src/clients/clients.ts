@@ -131,6 +131,46 @@ export async function updateClient(db: Db, userId: string, id: string, data: Par
   return row ?? null;
 }
 
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+/**
+ * Bulk-creates clients from an imported file. Purely local: it only writes client
+ * records for this user and never contacts AADE. Rows without a name, or that
+ * duplicate an existing client (same name and AFM), are skipped.
+ */
+export async function importClients(db: Db, userId: string, rows: ClientInput[]): Promise<ImportResult> {
+  const existing = await db.query<{ key: string }>("select lower(name) || '|' || coalesce(vat_number, '') as key from clients where user_id = $1", [userId]);
+  const seen = new Set(existing.map((e) => e.key));
+  let imported = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  for (const [i, row] of rows.entries()) {
+    const name = (row.name ?? "").trim();
+    if (!name) {
+      skipped++;
+      continue;
+    }
+    const key = `${name.toLowerCase()}|${(row.vat_number ?? "").trim()}`;
+    if (seen.has(key)) {
+      skipped++;
+      continue;
+    }
+    try {
+      await createClient(db, userId, row);
+      seen.add(key);
+      imported++;
+    } catch (e) {
+      skipped++;
+      if (errors.length < 10) errors.push(`Γραμμή ${i + 1} («${name}»): ${e instanceof ClientError ? e.message : "σφάλμα"}`);
+    }
+  }
+  return { imported, skipped, errors };
+}
+
 export function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }

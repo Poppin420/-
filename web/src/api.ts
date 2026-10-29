@@ -113,6 +113,8 @@ export const api = {
   clients: () => request<{ clients: Client[] }>("GET", "/api/clients"),
   createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
   updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
+  importClients: (clients: Array<Partial<Client> & { name: string }>) =>
+    request<{ imported: number; skipped: number; errors: string[] }>("POST", "/api/clients/import", { clients }),
 
   invoices: (params: { q?: string; status?: string; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();

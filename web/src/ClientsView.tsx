@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type Client } from "./api";
+import { ClientImport } from "./ClientImport";
 
 type Draft = { name: string; plate: string; nickname: string; vat_number: string; phone: string; email: string };
 
@@ -23,6 +24,7 @@ export function ClientsView() {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [query, setQuery] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     try {
@@ -90,9 +92,19 @@ export function ClientsView() {
         )}
         {editing === "new" ? (
           form
+        ) : importing ? (
+          <ClientImport onDone={load} />
         ) : (
-          <button className="primary" onClick={() => (setDraft(EMPTY), setEditing("new"))}>
-            + Νέος πελάτης
+          <div className="actions">
+            <button className="primary" onClick={() => (setDraft(EMPTY), setEditing("new"))}>
+              + Νέος πελάτης
+            </button>
+            <button onClick={() => setImporting(true)}>Εισαγωγή από CSV</button>
+          </div>
+        )}
+        {importing && (
+          <button className="link" onClick={() => setImporting(false)}>
+            Κλείσιμο εισαγωγής
           </button>
         )}
       </div>

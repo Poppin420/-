@@ -15,7 +15,7 @@ import { MAX_AUDIO_BYTES } from "../transcription/groqWhisper";
 import { CardInput, executeCard, previewCard, rebuildCard, type CardPreview } from "../actions/actions";
 import { cancelAppointment, getAppointment, listAppointments } from "../calendar/appointments";
 import { disconnect, finishConnect, isConnected, startConnect, syncToGoogle } from "../calendar/google";
-import { createClient, getClient, listClients, updateClient, ClientError } from "../clients/clients";
+import { createClient, getClient, importClients, listClients, updateClient, ClientError } from "../clients/clients";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -254,6 +254,23 @@ route("PUT", "/api/clients/:id", true, async (req, ctx, user, { id }) => {
     if (e instanceof ClientError) return error(400, e.message);
     throw e;
   }
+});
+
+// Bulk import of clients from a file. Local only — it never contacts AADE.
+route("POST", "/api/clients/import", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  const rows = Array.isArray(body.clients) ? body.clients : null;
+  if (!rows) return error(400, "Μη έγκυρα δεδομένα εισαγωγής.");
+  if (rows.length > 5000) return error(400, "Πάρα πολλές γραμμές (όριο 5000 ανά εισαγωγή).");
+  const clients = rows.map((r: Record<string, unknown>) => ({
+    name: typeof r.name === "string" ? r.name : "",
+    nickname: optField(r.nickname),
+    plate: optField(r.plate),
+    vat_number: optField(r.vat_number),
+    phone: optField(r.phone),
+    email: optField(r.email),
+  }));
+  return json(200, await importClients(ctx.db, user!.id, clients));
 });
 
 // --- Google Calendar ----------------------------------------------------------
