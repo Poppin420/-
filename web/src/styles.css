@@ -176,5 +176,10 @@ label.check input { width: auto; min-height: 0; }
 
 .payment-method { display: grid; gap: 4px; color: var(--muted); font-size: 0.9rem; margin: 10px 0; }
 
+.invoice-search { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.invoice-search input { flex: 1 1 10rem; min-width: 0; }
+.invoice-search select { flex: 0 0 auto; }
+.load-more { width: 100%; margin-top: 10px; }
+
 .client-filter { width: 100%; margin-bottom: 10px; }
 .plate { display: inline-block; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px; white-space: nowrap; }

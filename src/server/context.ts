@@ -35,7 +35,8 @@ export interface AppContext {
 
 /** Builds configuration from environment variables. Missing optional features stay disabled (fail closed). */
 export function configFromEnv(env: Record<string, string | undefined> = process.env): AppConfig {
-  const baseUrl = (env.APP_BASE_URL || env.URL || "").replace(/\/$/, "") || null;
+  // APP_BASE_URL is preferred; URL (Netlify) and RENDER_EXTERNAL_URL (Render) are auto-set fallbacks.
+  const baseUrl = (env.APP_BASE_URL || env.URL || env.RENDER_EXTERNAL_URL || "").replace(/\/$/, "") || null;
   const secretBox = env.DATA_ENCRYPTION_KEY ? new SecretBox(env.DATA_ENCRYPTION_KEY) : null;
   const google =
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && baseUrl && secretBox
