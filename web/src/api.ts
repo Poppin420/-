@@ -1,11 +1,15 @@
 import type { CardPreview, Choices, ExecutionResult } from "@core/actions/actions";
 import type { Appointment } from "@core/calendar/appointments";
 import type { Client } from "@core/clients/clients";
+import type { Vehicle } from "@core/vehicles/vehicles";
 import type { BusinessProfile } from "@core/invoicing/profile";
 import type { CheckResult, InvoiceRow } from "@core/invoicing/invoices";
 import type { CredentialStatus } from "@core/aade/credentials";
 
-export type { CardPreview, Choices, ExecutionResult, Appointment, Client, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+export type { CardPreview, Choices, ExecutionResult, Appointment, Client, Vehicle, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+
+/** Writable vehicle fields as sent from the UI; year may be a string the server coerces. */
+export type VehicleFields = Partial<Omit<Vehicle, "id" | "client_id" | "year">> & { year?: number | string | null };
 
 export interface SpecInfo {
   version: string | null;
@@ -113,6 +117,13 @@ export const api = {
   clients: () => request<{ clients: Client[] }>("GET", "/api/clients"),
   createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
   updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
+
+  vehicles: (clientId: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/clients/${clientId}/vehicles`),
+  createVehicle: (clientId: string, data: VehicleFields & { plate: string }) =>
+    request<{ vehicle: Vehicle }>("POST", `/api/clients/${clientId}/vehicles`, data),
+  updateVehicle: (id: string, data: VehicleFields) => request<{ vehicle: Vehicle }>("PUT", `/api/vehicles/${id}`, data),
+  deleteVehicle: (id: string) => request("DELETE", `/api/vehicles/${id}`),
+  findVehiclesByPlate: (plate: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/vehicles?plate=${encodeURIComponent(plate)}`),
 
   invoices: (params: { q?: string; status?: string; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();

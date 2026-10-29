@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type Client } from "./api";
+import { VehiclesPanel } from "./VehiclesPanel";
 
 type Draft = { name: string; plate: string; nickname: string; vat_number: string; phone: string; email: string };
 
@@ -23,6 +24,7 @@ export function ClientsView() {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -119,8 +121,14 @@ export function ClientsView() {
                       {c.nickname && <span className="nickname"> «{c.nickname}»</span>}
                       <div className="note">{[c.vat_number && `ΑΦΜ ${c.vat_number}`, c.phone, c.email].filter(Boolean).join(" · ")}</div>
                     </div>
-                    <button onClick={() => (setDraft(toDraft(c)), setEditing(c.id))}>Επεξεργασία</button>
+                    <div className="actions" style={{ marginTop: 0 }}>
+                      <button onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
+                        {expanded === c.id ? "Κλείσιμο" : "Οχήματα"}
+                      </button>
+                      <button onClick={() => (setDraft(toDraft(c)), setEditing(c.id))}>Επεξεργασία</button>
+                    </div>
                   </div>
+                  {expanded === c.id && <VehiclesPanel clientId={c.id} />}
                 </li>
               ),
             )}

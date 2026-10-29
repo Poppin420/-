@@ -16,6 +16,14 @@ import { CardInput, executeCard, previewCard, rebuildCard, type CardPreview } fr
 import { cancelAppointment, getAppointment, listAppointments } from "../calendar/appointments";
 import { disconnect, finishConnect, isConnected, startConnect, syncToGoogle } from "../calendar/google";
 import { createClient, getClient, listClients, updateClient, ClientError } from "../clients/clients";
+import {
+  createVehicle,
+  deleteVehicle,
+  findVehiclesByPlate,
+  listVehicles,
+  updateVehicle,
+  VehicleError,
+} from "../vehicles/vehicles";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -255,6 +263,65 @@ route("PUT", "/api/clients/:id", true, async (req, ctx, user, { id }) => {
     throw e;
   }
 });
+
+// --- Vehicles -----------------------------------------------------------------
+
+// Vehicles of one client. The client is named in the path so each list stays scoped.
+route("GET", "/api/clients/:id/vehicles", true, async (_req, ctx, user, { id }) => {
+  if (!(await getClient(ctx.db, user!.id, id!))) return error(404, "Ο πελάτης δεν βρέθηκε.");
+  return json(200, { vehicles: await listVehicles(ctx.db, user!.id, id!) });
+});
+
+route("POST", "/api/clients/:id/vehicles", true, async (req, ctx, user, { id }) => {
+  if (!(await getClient(ctx.db, user!.id, id!))) return error(404, "Ο πελάτης δεν βρέθηκε.");
+  const body = await readJson(req);
+  try {
+    const vehicle = await createVehicle(ctx.db, user!.id, {
+      client_id: id!,
+      plate: str(body.plate),
+      make: optField(body.make),
+      model: optField(body.model),
+      engine: optField(body.engine),
+      vin: optField(body.vin),
+      year: optField(body.year),
+      notes: optField(body.notes),
+    });
+    return json(201, { vehicle });
+  } catch (e) {
+    if (e instanceof VehicleError) return error(400, e.message);
+    throw e;
+  }
+});
+
+// Find a vehicle by (spoken or typed) plate, across every client — for voice matching.
+route("GET", "/api/vehicles", true, async (req, ctx, user) => {
+  const q = new URL(req.url).searchParams.get("plate") ?? "";
+  return json(200, { vehicles: q.trim() ? await findVehiclesByPlate(ctx.db, user!.id, q) : [] });
+});
+
+route("PUT", "/api/vehicles/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const vehicle = await updateVehicle(ctx.db, user!.id, id!, {
+      plate: optField(body.plate) ?? undefined,
+      make: optField(body.make),
+      model: optField(body.model),
+      engine: optField(body.engine),
+      vin: optField(body.vin),
+      year: optField(body.year),
+      notes: optField(body.notes),
+    });
+    if (!vehicle) return error(404, "Το όχημα δεν βρέθηκε.");
+    return json(200, { vehicle });
+  } catch (e) {
+    if (e instanceof VehicleError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/vehicles/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteVehicle(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Το όχημα δεν βρέθηκε."),
+);
 
 // --- Google Calendar ----------------------------------------------------------
 

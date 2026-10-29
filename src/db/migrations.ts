@@ -184,6 +184,29 @@ alter table clients add column nickname text check (nickname is null or length(n
 alter table clients add column plate text check (plate is null or length(plate) between 1 and 20);
 `,
   },
+  {
+    id: "005_vehicles",
+    sql: `
+-- Vehicles owned by a client. A car workshop keeps several cars per client and
+-- finds them by plate. Local workshop data only, never sent to AADE.
+create table vehicles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  client_id uuid not null references clients(id) on delete cascade,
+  plate text not null check (length(plate) between 1 and 20),
+  make text check (make is null or length(make) between 1 and 60),
+  model text check (model is null or length(model) between 1 and 60),
+  engine text check (engine is null or length(engine) between 1 and 40),
+  vin text check (vin is null or length(vin) between 1 and 40),
+  year integer check (year is null or year between 1900 and 2100),
+  notes text check (notes is null or length(notes) <= 2000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index vehicles_user_client_idx on vehicles (user_id, client_id);
+create index vehicles_user_plate_idx on vehicles (user_id, plate);
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {
