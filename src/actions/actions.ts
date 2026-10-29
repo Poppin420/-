@@ -5,6 +5,7 @@ import { RawAction } from "../intent-parsing/schema";
 import { MAX_TRANSCRIPT_CHARS } from "../intent-parsing";
 import { answerQuestion, resolveAction, type ActionCard } from "../intent-parsing/resolve";
 import { createClient, getClient, isUuid, listClients, matchClients } from "../clients/clients";
+import { findVehiclesByPlate } from "../vehicles/vehicles";
 import {
   cancelAppointment,
   describeAppointment,
@@ -157,6 +158,18 @@ export async function previewCard(ctx: AppContext, userId: string, card: ActionC
 async function chooseClient(ctx: AppContext, userId: string, name: string, choices: Choices, context: ActionContext) {
   const clients = await listClients(ctx.db, userId);
   const matches = matchClients(name, clients);
+  // A spoken licence plate should find the owner through any of their cars, not
+  // just the plate stored on the client record. Only when the text looks like a
+  // plate (has a digit) so that ordinary names are left to the name matcher.
+  if (/\d/.test(name)) {
+    const byId = new Map(clients.map((c) => [c.id, c]));
+    const alreadyMatched = new Set(matches.map((c) => c.id));
+    const ownersByPlate = (await findVehiclesByPlate(ctx.db, userId, name))
+      .map((v) => byId.get(v.client_id))
+      .filter((c): c is NonNullable<typeof c> => !!c && !alreadyMatched.has(c.id));
+    // Plate hits are specific, so put them first.
+    matches.unshift(...new Map(ownersByPlate.map((c) => [c.id, c])).values());
+  }
   const options = matches.map((c) => ({ id: c.id, label: c.vat_number ? `${c.name} (ΑΦΜ ${c.vat_number})` : c.name }));
   const selected =
     choices.clientId && (choices.clientId === NEW_CLIENT || options.some((o) => o.id === choices.clientId))
