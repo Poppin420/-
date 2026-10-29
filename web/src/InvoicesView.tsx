@@ -67,7 +67,7 @@ export function InvoicesView() {
           setQ(input.trim());
         }}
       >
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Αναζήτηση: πελάτης, αριθμός, ΜΑΡΚ…" aria-label="Αναζήτηση παραστατικών" />
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Αναζήτηση: πελάτης, ΑΦΜ, ποσό, αριθμός, ΜΑΡΚ…" aria-label="Αναζήτηση παραστατικών" />
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Κατάσταση">
           <option value="">Όλες</option>
           {Object.entries(STATUS).map(([value, label]) => (

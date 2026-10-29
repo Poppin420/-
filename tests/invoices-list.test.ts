@@ -49,6 +49,17 @@ describe("invoices listing", () => {
     expect(maria.json.invoices.every((inv: { draft: { customer: { name: string } } }) => inv.draft.customer.name.startsWith("Μαρία"))).toBe(true);
   });
 
+  it("searches by customer AFM and by amount", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    const userId = await userIdOf(app, cookie);
+    // A business invoice carries a customer AFM; its gross is 124.00 (100 net + 24% VAT).
+    await insertDraft(db, userId, makeDraft({ counterpart: "business", vatNumber: "123456789" }));
+    expect((await call(app, "GET", "/api/invoices?q=123456789", { cookie })).json.invoices).toHaveLength(1);
+    expect((await call(app, "GET", "/api/invoices?q=124", { cookie })).json.invoices).toHaveLength(1);
+    expect((await call(app, "GET", "/api/invoices?q=999999999", { cookie })).json.invoices).toHaveLength(0);
+  });
+
   it("filters by status", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);

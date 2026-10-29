@@ -222,7 +222,11 @@ export async function listInvoices(db: Db, userId: string, opts: InvoiceListOpti
   if (term) {
     params.push(`%${term}%`);
     const p = `$${params.length}`;
-    where.push(`(draft->'customer'->>'name' ilike ${p} or series ilike ${p} or coalesce(mark, '') ilike ${p} or coalesce(number::text, '') ilike ${p})`);
+    where.push(
+      `(draft->'customer'->>'name' ilike ${p} or draft->'customer'->>'vat_number' ilike ${p} ` +
+        `or draft->'calc'->'totals'->>'gross' ilike ${p} or draft->'calc'->'totals'->>'payable' ilike ${p} ` +
+        `or series ilike ${p} or coalesce(mark, '') ilike ${p} or coalesce(number::text, '') ilike ${p})`,
+    );
   }
   params.push(limit + 1, offset);
   // Fetch one extra row to tell whether another page exists.
