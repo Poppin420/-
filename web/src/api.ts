@@ -137,6 +137,9 @@ export const api = {
   updateServiceItem: (id: string, data: Partial<ServiceItem>) => request<{ item: ServiceItem }>("PUT", `/api/service-items/${id}`, data),
   deleteServiceItem: (id: string) => request("DELETE", `/api/service-items/${id}`),
 
+  importGarage: (rows: Record<string, string>[]) =>
+    request<{ summary: Record<string, number> }>("POST", "/api/import/garage", { rows }),
+
   services: (vehicleId: string) => request<{ records: ServiceRecord[] }>("GET", `/api/vehicles/${vehicleId}/services`),
   createService: (vehicleId: string, data: ServiceFields) =>
     request<{ record: ServiceRecord }>("POST", `/api/vehicles/${vehicleId}/services`, data),

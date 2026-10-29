@@ -39,6 +39,7 @@ import {
   updateServiceRecord,
   ServiceRecordError,
 } from "../vehicles/serviceRecords";
+import { importGarage, type ImportRow } from "../vehicles/garageImport";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -427,6 +428,36 @@ route("PUT", "/api/services/:id", true, async (req, ctx, user, { id }) => {
 route("DELETE", "/api/services/:id", true, async (_req, ctx, user, { id }) =>
   (await deleteServiceRecord(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Η εγγραφή δεν βρέθηκε."),
 );
+
+// --- Import existing workshop records (clients + vehicles) --------------------
+// One row is one car. Local data only; this never contacts AADE.
+const MAX_IMPORT_ROWS = 20000;
+
+route("POST", "/api/import/garage", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  if (!Array.isArray(body.rows)) return error(400, "Λείπουν οι γραμμές προς εισαγωγή.");
+  if (body.rows.length > MAX_IMPORT_ROWS) return error(400, `Πολλές γραμμές (όριο ${MAX_IMPORT_ROWS}). Χώρισε το αρχείο.`);
+  const rows = (body.rows as unknown[]).map((r): ImportRow => {
+    const o = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+    const field = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : o[k] == null ? undefined : String(o[k]));
+    return {
+      name: field("name"),
+      nickname: field("nickname"),
+      vat_number: field("vat_number"),
+      phone: field("phone"),
+      email: field("email"),
+      plate: field("plate"),
+      make: field("make"),
+      model: field("model"),
+      engine: field("engine"),
+      vin: field("vin"),
+      year: field("year"),
+      notes: field("notes"),
+    };
+  });
+  const summary = await importGarage(ctx.db, user!.id, rows);
+  return json(200, { summary });
+});
 
 // --- Google Calendar ----------------------------------------------------------
 

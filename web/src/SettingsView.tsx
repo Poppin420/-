@@ -85,6 +85,9 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
           <a className="button" href="#/checklist">
             Λίστα εργασιών
           </a>
+          <a className="button" href="#/import">
+            Εισαγωγή από αρχείο
+          </a>
         </div>
       </div>
 
