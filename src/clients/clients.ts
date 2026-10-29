@@ -35,12 +35,24 @@ function clientStems(c: Client): string[] {
   return [...new Set([...nameStems(c.name), ...(c.nickname ? nameStems(c.nickname) : [])])];
 }
 
+/** A plate reduced to its letters and digits, uppercased, so "αβγ-1234" == "ΑΒΓ 1234". */
+function normalizePlate(value: string): string {
+  return value.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
 /**
  * Clients whose name or nickname contains every stem of the spoken name, best
  * first: "Μαρία" matches "Μαρία Παπαδοπούλου"; "Γιώργος σίδερα" matches the
- * client named "Γιώργος Παπαδόπουλος" with that nickname.
+ * client named "Γιώργος Παπαδόπουλος" with that nickname. A spoken licence plate
+ * ("στο ΑΒΓ-1234") matches the client that car belongs to.
  */
 export function matchClients(spoken: string, clients: Client[]): Client[] {
+  // A plate is specific, so prefer it when the command clearly contains one.
+  const spokenPlate = normalizePlate(spoken);
+  if (spokenPlate.length >= 4) {
+    const byPlate = clients.filter((c) => c.plate && spokenPlate.includes(normalizePlate(c.plate)));
+    if (byPlate.length > 0) return byPlate;
+  }
   const wanted = nameStems(spoken);
   if (wanted.length === 0) return [];
   return clients

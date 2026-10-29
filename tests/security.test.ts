@@ -75,4 +75,11 @@ describe("client name matching", () => {
     // The official name still works.
     expect(matchClients("Παπαδόπουλο", pool).map((x) => x.id)).toEqual(["g"]);
   });
+
+  it("matches a client by the car's licence plate, however it is spoken", () => {
+    const car: Client = { id: "car", name: "Γιάννης Μηχανικός", nickname: null, plate: "ΑΒΓ-1234", vat_number: null, phone: null, email: null };
+    const pool = [car, c("Γιάννης Αντωνίου")];
+    expect(matchClients("στο ΑΒΓ 1234", pool).map((x) => x.id)).toEqual(["car"]);
+    expect(matchClients("αβγ-1234", pool).map((x) => x.id)).toEqual(["car"]);
+  });
 });
