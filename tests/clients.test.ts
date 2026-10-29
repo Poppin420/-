@@ -23,6 +23,16 @@ describe("clients API", () => {
     expect(list.find((c) => c.name === "Γιώργος Παπαδόπουλος")?.nickname).toBe("Γιώργος σίδερα");
   });
 
+  it("stores a vehicle plate and normalizes it to uppercase", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    const res = await call(app, "POST", "/api/clients", { cookie, body: { name: "Πελάτης συνεργείου", plate: "αβγ-1234" } });
+    expect(res.status).toBe(201);
+    expect(res.json.client.plate).toBe("ΑΒΓ-1234");
+    const got = (await call(app, "GET", "/api/clients", { cookie })).json.clients.find((c: { plate: string | null }) => c.plate === "ΑΒΓ-1234");
+    expect(got).toBeTruthy();
+  });
+
   it("updates the nickname and can clear it", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);

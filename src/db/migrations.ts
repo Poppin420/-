@@ -177,6 +177,13 @@ create trigger invoices_protect before update or delete on invoices
 alter table clients add column nickname text check (nickname is null or length(nickname) between 1 and 80);
 `,
   },
+  {
+    id: "004_client_plate",
+    sql: `
+-- Vehicle licence plate, for a car workshop to find a client by car. Never sent to AADE.
+alter table clients add column plate text check (plate is null or length(plate) between 1 and 20);
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {
