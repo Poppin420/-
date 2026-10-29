@@ -23,29 +23,71 @@ const STATUS: Record<InvoiceRow["status"], string> = {
   cancelled: "Ακυρώθηκε",
 };
 
+const PAGE_SIZE = 50;
+
 export function InvoicesView() {
-  const [list, setList] = useState<InvoiceRow[] | null>(null);
+  const [list, setList] = useState<InvoiceRow[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [input, setInput] = useState("");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      setList((await api.invoices()).invoices);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Σφάλμα φόρτωσης.");
-    }
-  }, []);
-  useEffect(() => void load(), [load]);
+  const load = useCallback(
+    async (offset: number) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.invoices({ q: q || undefined, status: status || undefined, limit: PAGE_SIZE, offset });
+        setList((prev) => (offset === 0 ? res.invoices : [...prev, ...res.invoices]));
+        setHasMore(res.hasMore);
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : "Σφάλμα φόρτωσης.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [q, status],
+  );
+  useEffect(() => void load(0), [load]);
 
-  if (open) return <InvoiceDetailView id={open} onBack={() => (setOpen(null), void load())} />;
+  if (open) return <InvoiceDetailView id={open} onBack={() => (setOpen(null), void load(0))} />;
 
+  const filtering = q !== "" || status !== "";
   return (
     <section className="invoices">
       <h2 className="cal-title">Παραστατικά</h2>
+
+      <form
+        className="invoice-search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setQ(input.trim());
+        }}
+      >
+        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Αναζήτηση: πελάτης, αριθμός, ΜΑΡΚ…" aria-label="Αναζήτηση παραστατικών" />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Κατάσταση">
+          <option value="">Όλες</option>
+          {Object.entries(STATUS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Αναζήτηση</button>
+      </form>
+
       {error && <p className="error">{error}</p>}
-      {list?.length === 0 && <p className="note">Δεν υπάρχουν ακόμη παραστατικά. Πες π.χ. «Κόψε απόδειξη 40 ευρώ με ΦΠΑ στη Μαρία για μάθημα».</p>}
+      {!loading && list.length === 0 && (
+        <p className="note">
+          {filtering ? "Κανένα παραστατικό δεν ταιριάζει." : "Δεν υπάρχουν ακόμη παραστατικά. Πες π.χ. «Κόψε απόδειξη 40 ευρώ με ΦΠΑ στη Μαρία για μάθημα»."}
+        </p>
+      )}
+
       <ul className="appts">
-        {list?.map((inv) => (
+        {list.map((inv) => (
           <li key={inv.id} className="appt invoice-row" onClick={() => setOpen(inv.id)}>
             <div className="appt-body">
               <strong>{inv.draft.customer.name}</strong>
@@ -61,6 +103,13 @@ export function InvoicesView() {
           </li>
         ))}
       </ul>
+
+      {loading && <p className="note">Φόρτωση…</p>}
+      {hasMore && !loading && (
+        <button className="load-more" onClick={() => void load(list.length)}>
+          Φόρτωσε περισσότερα
+        </button>
+      )}
     </section>
   );
 }

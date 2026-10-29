@@ -195,12 +195,42 @@ export async function insertDraft(db: Db, userId: string, draft: InvoiceDraft): 
   return toRow(row!);
 }
 
-export async function listInvoices(db: Db, userId: string): Promise<InvoiceRow[]> {
+export interface InvoiceListOptions {
+  /** Free text matched against client name, series, number or MARK. */
+  search?: string;
+  status?: InvoiceStatus;
+  limit?: number;
+  offset?: number;
+}
+
+export interface InvoiceListResult {
+  invoices: InvoiceRow[];
+  hasMore: boolean;
+}
+
+/** A page of the user's invoices, newest first, with optional search and status filters. */
+export async function listInvoices(db: Db, userId: string, opts: InvoiceListOptions = {}): Promise<InvoiceListResult> {
+  const limit = Math.min(Math.max(Math.trunc(opts.limit ?? 50) || 50, 1), 200);
+  const offset = Math.max(Math.trunc(opts.offset ?? 0) || 0, 0);
+  const where = ["user_id = $1"];
+  const params: unknown[] = [userId];
+  if (opts.status) {
+    params.push(opts.status);
+    where.push(`status = $${params.length}`);
+  }
+  const term = opts.search?.trim();
+  if (term) {
+    params.push(`%${term}%`);
+    const p = `$${params.length}`;
+    where.push(`(draft->'customer'->>'name' ilike ${p} or series ilike ${p} or coalesce(mark, '') ilike ${p} or coalesce(number::text, '') ilike ${p})`);
+  }
+  params.push(limit + 1, offset);
+  // Fetch one extra row to tell whether another page exists.
   const rows = await db.query<Record<string, unknown>>(
-    `select ${COLUMNS} from invoices where user_id = $1 order by created_at desc limit 200`,
-    [userId],
+    `select ${COLUMNS} from invoices where ${where.join(" and ")} order by created_at desc limit $${params.length - 1} offset $${params.length}`,
+    params,
   );
-  return rows.map(toRow);
+  return { invoices: rows.slice(0, limit).map(toRow), hasMore: rows.length > limit };
 }
 
 export async function getInvoice(db: Db, userId: string, id: string): Promise<InvoiceRow | null> {
