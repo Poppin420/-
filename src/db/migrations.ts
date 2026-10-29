@@ -207,6 +207,44 @@ create index vehicles_user_client_idx on vehicles (user_id, client_id);
 create index vehicles_user_plate_idx on vehicles (user_id, plate);
 `,
   },
+  {
+    id: "006_service_items",
+    sql: `
+-- The workshop's configurable checklist of service tasks (oil change, filters,
+-- belts, brakes ...). Seeded per user with a Greek default set on first use,
+-- then freely editable. "position" orders them; "active" hides one without
+-- losing history that referenced its label.
+create table service_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  label text not null check (length(label) between 1 and 80),
+  category text check (category is null or length(category) between 1 and 60),
+  position integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create index service_items_user_idx on service_items (user_id, position);
+`,
+  },
+  {
+    id: "007_service_records",
+    sql: `
+-- Service history per vehicle: one row per visit, with the odometer reading,
+-- the type of work, and the checklist labels that were done that day.
+create table service_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  vehicle_id uuid not null references vehicles(id) on delete cascade,
+  serviced_on date not null,
+  odometer integer check (odometer is null or odometer between 0 and 10000000),
+  work_type text check (work_type is null or length(work_type) <= 200),
+  items jsonb not null default '[]'::jsonb,
+  notes text check (notes is null or length(notes) <= 4000),
+  created_at timestamptz not null default now()
+);
+create index service_records_user_vehicle_idx on service_records (user_id, vehicle_id, serviced_on desc);
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {

@@ -20,10 +20,25 @@ import {
   createVehicle,
   deleteVehicle,
   findVehiclesByPlate,
+  getVehicle,
   listVehicles,
   updateVehicle,
   VehicleError,
 } from "../vehicles/vehicles";
+import {
+  createServiceItem,
+  deleteServiceItem,
+  listServiceItems,
+  updateServiceItem,
+  ServiceItemError,
+} from "../vehicles/serviceItems";
+import {
+  createServiceRecord,
+  deleteServiceRecord,
+  listServiceRecords,
+  updateServiceRecord,
+  ServiceRecordError,
+} from "../vehicles/serviceRecords";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -227,6 +242,10 @@ route("GET", "/api/clients", true, async (_req, ctx, user) => json(200, { client
 // A field is updated when it is a string (or null to clear it), left as-is when absent.
 const optField = (v: unknown): string | null | undefined => (typeof v === "string" ? v : v === null ? null : undefined);
 
+// Like optField but also keeps numbers, for fields a client may send as number or string (year, odometer).
+const numField = (v: unknown): number | string | null | undefined =>
+  typeof v === "number" || typeof v === "string" ? v : v === null ? null : undefined;
+
 route("POST", "/api/clients", true, async (req, ctx, user) => {
   const body = await readJson(req);
   try {
@@ -283,7 +302,7 @@ route("POST", "/api/clients/:id/vehicles", true, async (req, ctx, user, { id }) 
       model: optField(body.model),
       engine: optField(body.engine),
       vin: optField(body.vin),
-      year: optField(body.year),
+      year: numField(body.year),
       notes: optField(body.notes),
     });
     return json(201, { vehicle });
@@ -308,7 +327,7 @@ route("PUT", "/api/vehicles/:id", true, async (req, ctx, user, { id }) => {
       model: optField(body.model),
       engine: optField(body.engine),
       vin: optField(body.vin),
-      year: optField(body.year),
+      year: numField(body.year),
       notes: optField(body.notes),
     });
     if (!vehicle) return error(404, "Το όχημα δεν βρέθηκε.");
@@ -321,6 +340,92 @@ route("PUT", "/api/vehicles/:id", true, async (req, ctx, user, { id }) => {
 
 route("DELETE", "/api/vehicles/:id", true, async (_req, ctx, user, { id }) =>
   (await deleteVehicle(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Το όχημα δεν βρέθηκε."),
+);
+
+// --- Service checklist (configurable per workshop) ----------------------------
+
+route("GET", "/api/service-items", true, async (req, ctx, user) => {
+  const activeOnly = new URL(req.url).searchParams.get("active") === "1";
+  return json(200, { items: await listServiceItems(ctx.db, user!.id, { activeOnly }) });
+});
+
+route("POST", "/api/service-items", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  try {
+    const item = await createServiceItem(ctx.db, user!.id, { label: str(body.label), category: optField(body.category) });
+    return json(201, { item });
+  } catch (e) {
+    if (e instanceof ServiceItemError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("PUT", "/api/service-items/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const item = await updateServiceItem(ctx.db, user!.id, id!, {
+      label: optField(body.label) ?? undefined,
+      category: optField(body.category),
+      position: typeof body.position === "number" ? body.position : undefined,
+      active: typeof body.active === "boolean" ? body.active : undefined,
+    });
+    if (!item) return error(404, "Η εργασία δεν βρέθηκε.");
+    return json(200, { item });
+  } catch (e) {
+    if (e instanceof ServiceItemError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/service-items/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteServiceItem(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Η εργασία δεν βρέθηκε."),
+);
+
+// --- Service history per vehicle ----------------------------------------------
+
+route("GET", "/api/vehicles/:id/services", true, async (_req, ctx, user, { id }) => {
+  if (!(await getVehicle(ctx.db, user!.id, id!))) return error(404, "Το όχημα δεν βρέθηκε.");
+  return json(200, { records: await listServiceRecords(ctx.db, user!.id, id!) });
+});
+
+route("POST", "/api/vehicles/:id/services", true, async (req, ctx, user, { id }) => {
+  if (!(await getVehicle(ctx.db, user!.id, id!))) return error(404, "Το όχημα δεν βρέθηκε.");
+  const body = await readJson(req);
+  try {
+    const record = await createServiceRecord(ctx.db, user!.id, id!, {
+      serviced_on: optField(body.serviced_on),
+      odometer: numField(body.odometer),
+      work_type: optField(body.work_type),
+      items: body.items,
+      notes: optField(body.notes),
+    });
+    return json(201, { record });
+  } catch (e) {
+    if (e instanceof ServiceRecordError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("PUT", "/api/services/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const record = await updateServiceRecord(ctx.db, user!.id, id!, {
+      serviced_on: optField(body.serviced_on),
+      odometer: numField(body.odometer),
+      work_type: optField(body.work_type),
+      items: body.items !== undefined ? body.items : undefined,
+      notes: optField(body.notes),
+    });
+    if (!record) return error(404, "Η εγγραφή δεν βρέθηκε.");
+    return json(200, { record });
+  } catch (e) {
+    if (e instanceof ServiceRecordError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/services/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteServiceRecord(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Η εγγραφή δεν βρέθηκε."),
 );
 
 // --- Google Calendar ----------------------------------------------------------

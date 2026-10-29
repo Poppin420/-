@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type Vehicle } from "./api";
+import { ServiceHistoryPanel } from "./ServiceHistoryPanel";
 
 type Draft = { plate: string; make: string; model: string; engine: string; vin: string; year: string; notes: string };
 
@@ -23,6 +24,7 @@ export function VehiclesPanel({ clientId }: { clientId: string }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [history, setHistory] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -123,12 +125,16 @@ export function VehiclesPanel({ clientId }: { clientId: string }) {
                     {v.notes && <div className="note">{v.notes}</div>}
                   </div>
                   <div className="actions" style={{ marginTop: 0 }}>
+                    <button onClick={() => setHistory(history === v.id ? null : v.id)}>
+                      {history === v.id ? "Κλείσιμο" : "Ιστορικό"}
+                    </button>
                     <button onClick={() => (setDraft(toDraft(v)), setEditing(v.id))}>Επεξεργασία</button>
                     <button disabled={busy} onClick={() => remove(v.id)}>
                       Διαγραφή
                     </button>
                   </div>
                 </div>
+                {history === v.id && <ServiceHistoryPanel vehicleId={v.id} />}
               </li>
             ),
           )}
