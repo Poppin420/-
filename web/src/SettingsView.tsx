@@ -76,6 +76,22 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
       </div>
 
       <div className="panel">
+        <h2>Συνεργείο</h2>
+        <p className="note">Πελάτες και τα οχήματά τους (πινακίδα, μάρκα, ιστορικό service) και η λίστα εργασιών που εμφανίζεται σε κάθε service.</p>
+        <div className="actions">
+          <a className="button" href="#/clients">
+            Πελάτες & οχήματα
+          </a>
+          <a className="button" href="#/checklist">
+            Λίστα εργασιών
+          </a>
+          <a className="button" href="#/import">
+            Εισαγωγή από αρχείο
+          </a>
+        </div>
+      </div>
+
+      <div className="panel">
         <h2>Google Calendar</h2>
         {!me.google.available ? (
           <p className="note">Η σύνδεση με Google Calendar δεν έχει ενεργοποιηθεί σε αυτή την εγκατάσταση.</p>

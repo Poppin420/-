@@ -16,6 +16,30 @@ import { CardInput, executeCard, previewCard, rebuildCard, type CardPreview } fr
 import { cancelAppointment, getAppointment, listAppointments } from "../calendar/appointments";
 import { disconnect, finishConnect, isConnected, startConnect, syncToGoogle } from "../calendar/google";
 import { createClient, getClient, listClients, updateClient, ClientError } from "../clients/clients";
+import {
+  createVehicle,
+  deleteVehicle,
+  findVehiclesByPlate,
+  getVehicle,
+  listVehicles,
+  updateVehicle,
+  VehicleError,
+} from "../vehicles/vehicles";
+import {
+  createServiceItem,
+  deleteServiceItem,
+  listServiceItems,
+  updateServiceItem,
+  ServiceItemError,
+} from "../vehicles/serviceItems";
+import {
+  createServiceRecord,
+  deleteServiceRecord,
+  listServiceRecords,
+  updateServiceRecord,
+  ServiceRecordError,
+} from "../vehicles/serviceRecords";
+import { importGarage, type ImportRow } from "../vehicles/garageImport";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -219,6 +243,10 @@ route("GET", "/api/clients", true, async (_req, ctx, user) => json(200, { client
 // A field is updated when it is a string (or null to clear it), left as-is when absent.
 const optField = (v: unknown): string | null | undefined => (typeof v === "string" ? v : v === null ? null : undefined);
 
+// Like optField but also keeps numbers, for fields a client may send as number or string (year, odometer).
+const numField = (v: unknown): number | string | null | undefined =>
+  typeof v === "number" || typeof v === "string" ? v : v === null ? null : undefined;
+
 route("POST", "/api/clients", true, async (req, ctx, user) => {
   const body = await readJson(req);
   try {
@@ -254,6 +282,181 @@ route("PUT", "/api/clients/:id", true, async (req, ctx, user, { id }) => {
     if (e instanceof ClientError) return error(400, e.message);
     throw e;
   }
+});
+
+// --- Vehicles -----------------------------------------------------------------
+
+// Vehicles of one client. The client is named in the path so each list stays scoped.
+route("GET", "/api/clients/:id/vehicles", true, async (_req, ctx, user, { id }) => {
+  if (!(await getClient(ctx.db, user!.id, id!))) return error(404, "Ο πελάτης δεν βρέθηκε.");
+  return json(200, { vehicles: await listVehicles(ctx.db, user!.id, id!) });
+});
+
+route("POST", "/api/clients/:id/vehicles", true, async (req, ctx, user, { id }) => {
+  if (!(await getClient(ctx.db, user!.id, id!))) return error(404, "Ο πελάτης δεν βρέθηκε.");
+  const body = await readJson(req);
+  try {
+    const vehicle = await createVehicle(ctx.db, user!.id, {
+      client_id: id!,
+      plate: str(body.plate),
+      make: optField(body.make),
+      model: optField(body.model),
+      engine: optField(body.engine),
+      vin: optField(body.vin),
+      year: numField(body.year),
+      notes: optField(body.notes),
+    });
+    return json(201, { vehicle });
+  } catch (e) {
+    if (e instanceof VehicleError) return error(400, e.message);
+    throw e;
+  }
+});
+
+// Find a vehicle by (spoken or typed) plate, across every client — for voice matching.
+route("GET", "/api/vehicles", true, async (req, ctx, user) => {
+  const q = new URL(req.url).searchParams.get("plate") ?? "";
+  return json(200, { vehicles: q.trim() ? await findVehiclesByPlate(ctx.db, user!.id, q) : [] });
+});
+
+route("PUT", "/api/vehicles/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const vehicle = await updateVehicle(ctx.db, user!.id, id!, {
+      plate: optField(body.plate) ?? undefined,
+      make: optField(body.make),
+      model: optField(body.model),
+      engine: optField(body.engine),
+      vin: optField(body.vin),
+      year: numField(body.year),
+      notes: optField(body.notes),
+    });
+    if (!vehicle) return error(404, "Το όχημα δεν βρέθηκε.");
+    return json(200, { vehicle });
+  } catch (e) {
+    if (e instanceof VehicleError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/vehicles/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteVehicle(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Το όχημα δεν βρέθηκε."),
+);
+
+// --- Service checklist (configurable per workshop) ----------------------------
+
+route("GET", "/api/service-items", true, async (req, ctx, user) => {
+  const activeOnly = new URL(req.url).searchParams.get("active") === "1";
+  return json(200, { items: await listServiceItems(ctx.db, user!.id, { activeOnly }) });
+});
+
+route("POST", "/api/service-items", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  try {
+    const item = await createServiceItem(ctx.db, user!.id, { label: str(body.label), category: optField(body.category) });
+    return json(201, { item });
+  } catch (e) {
+    if (e instanceof ServiceItemError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("PUT", "/api/service-items/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const item = await updateServiceItem(ctx.db, user!.id, id!, {
+      label: optField(body.label) ?? undefined,
+      category: optField(body.category),
+      position: typeof body.position === "number" ? body.position : undefined,
+      active: typeof body.active === "boolean" ? body.active : undefined,
+    });
+    if (!item) return error(404, "Η εργασία δεν βρέθηκε.");
+    return json(200, { item });
+  } catch (e) {
+    if (e instanceof ServiceItemError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/service-items/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteServiceItem(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Η εργασία δεν βρέθηκε."),
+);
+
+// --- Service history per vehicle ----------------------------------------------
+
+route("GET", "/api/vehicles/:id/services", true, async (_req, ctx, user, { id }) => {
+  if (!(await getVehicle(ctx.db, user!.id, id!))) return error(404, "Το όχημα δεν βρέθηκε.");
+  return json(200, { records: await listServiceRecords(ctx.db, user!.id, id!) });
+});
+
+route("POST", "/api/vehicles/:id/services", true, async (req, ctx, user, { id }) => {
+  if (!(await getVehicle(ctx.db, user!.id, id!))) return error(404, "Το όχημα δεν βρέθηκε.");
+  const body = await readJson(req);
+  try {
+    const record = await createServiceRecord(ctx.db, user!.id, id!, {
+      serviced_on: optField(body.serviced_on),
+      odometer: numField(body.odometer),
+      work_type: optField(body.work_type),
+      items: body.items,
+      notes: optField(body.notes),
+    });
+    return json(201, { record });
+  } catch (e) {
+    if (e instanceof ServiceRecordError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("PUT", "/api/services/:id", true, async (req, ctx, user, { id }) => {
+  const body = await readJson(req);
+  try {
+    const record = await updateServiceRecord(ctx.db, user!.id, id!, {
+      serviced_on: optField(body.serviced_on),
+      odometer: numField(body.odometer),
+      work_type: optField(body.work_type),
+      items: body.items !== undefined ? body.items : undefined,
+      notes: optField(body.notes),
+    });
+    if (!record) return error(404, "Η εγγραφή δεν βρέθηκε.");
+    return json(200, { record });
+  } catch (e) {
+    if (e instanceof ServiceRecordError) return error(400, e.message);
+    throw e;
+  }
+});
+
+route("DELETE", "/api/services/:id", true, async (_req, ctx, user, { id }) =>
+  (await deleteServiceRecord(ctx.db, user!.id, id!)) ? json(200, { ok: true }) : error(404, "Η εγγραφή δεν βρέθηκε."),
+);
+
+// --- Import existing workshop records (clients + vehicles) --------------------
+// One row is one car. Local data only; this never contacts AADE.
+const MAX_IMPORT_ROWS = 20000;
+
+route("POST", "/api/import/garage", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  if (!Array.isArray(body.rows)) return error(400, "Λείπουν οι γραμμές προς εισαγωγή.");
+  if (body.rows.length > MAX_IMPORT_ROWS) return error(400, `Πολλές γραμμές (όριο ${MAX_IMPORT_ROWS}). Χώρισε το αρχείο.`);
+  const rows = (body.rows as unknown[]).map((r): ImportRow => {
+    const o = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+    const field = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : o[k] == null ? undefined : String(o[k]));
+    return {
+      name: field("name"),
+      nickname: field("nickname"),
+      vat_number: field("vat_number"),
+      phone: field("phone"),
+      email: field("email"),
+      plate: field("plate"),
+      make: field("make"),
+      model: field("model"),
+      engine: field("engine"),
+      vin: field("vin"),
+      year: field("year"),
+      notes: field("notes"),
+    };
+  });
+  const summary = await importGarage(ctx.db, user!.id, rows);
+  return json(200, { summary });
 });
 
 // --- Google Calendar ----------------------------------------------------------
