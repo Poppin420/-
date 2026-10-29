@@ -6,12 +6,14 @@ export interface Client {
   name: string;
   /** User-set nickname ("Γιώργος σίδερα"), for voice matching only. Never sent to AADE. */
   nickname: string | null;
+  /** Vehicle licence plate, for a car workshop to find a client by car. Never sent to AADE. */
+  plate: string | null;
   vat_number: string | null;
   phone: string | null;
   email: string | null;
 }
 
-const COLUMNS = "id, name, nickname, vat_number, phone, email";
+const COLUMNS = "id, name, nickname, plate, vat_number, phone, email";
 
 const TITLES = new Set(["κ", "κοσ", "κα", "κυριοσ", "κυριο", "κυριου", "κυρια", "κυριασ", "δρ", "δοκτωρ", "τον", "την", "τη", "του", "τησ", "ο", "η"]);
 // Greek case endings, longest first. Stripping them lets "Μαρίας" match "Μαρία" and "Νίκο" match "Νίκος".
@@ -61,6 +63,7 @@ export async function getClient(db: Db, userId: string, id: string): Promise<Cli
 export interface ClientInput {
   name: string;
   nickname?: string | null;
+  plate?: string | null;
   vat_number?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -79,17 +82,19 @@ function clean(data: ClientInput): Required<Omit<ClientInput, "name">> & { name:
   if (!name) throw new ClientError("Το όνομα του πελάτη είναι υποχρεωτικό.");
   const nickname = data.nickname?.trim() || null;
   if (nickname && nickname.length > 80) throw new ClientError("Το ψευδώνυμο είναι πολύ μεγάλο.");
+  const plate = data.plate?.trim().toUpperCase() || null;
+  if (plate && plate.length > 20) throw new ClientError("Η πινακίδα είναι πολύ μεγάλη.");
   const vat_number = data.vat_number?.trim() || null;
   if (vat_number && !/^[0-9]{9}$/.test(vat_number)) throw new ClientError("Ο ΑΦΜ πρέπει να έχει 9 ψηφία.");
-  return { name, nickname, vat_number, phone: data.phone?.trim() || null, email: data.email?.trim() || null };
+  return { name, nickname, plate, vat_number, phone: data.phone?.trim() || null, email: data.email?.trim() || null };
 }
 
 export async function createClient(db: Db, userId: string, data: ClientInput): Promise<Client> {
   const c = clean(data);
   const [row] = await db.query<Client>(
-    `insert into clients (user_id, name, nickname, vat_number, phone, email) values ($1, $2, $3, $4, $5, $6)
+    `insert into clients (user_id, name, nickname, plate, vat_number, phone, email) values ($1, $2, $3, $4, $5, $6, $7)
      returning ${COLUMNS}`,
-    [userId, c.name, c.nickname, c.vat_number, c.phone, c.email],
+    [userId, c.name, c.nickname, c.plate, c.vat_number, c.phone, c.email],
   );
   return row!;
 }
@@ -101,14 +106,15 @@ export async function updateClient(db: Db, userId: string, id: string, data: Par
   const c = clean({
     name: data.name ?? current.name,
     nickname: data.nickname !== undefined ? data.nickname : current.nickname,
+    plate: data.plate !== undefined ? data.plate : current.plate,
     vat_number: data.vat_number !== undefined ? data.vat_number : current.vat_number,
     phone: data.phone !== undefined ? data.phone : current.phone,
     email: data.email !== undefined ? data.email : current.email,
   });
   const [row] = await db.query<Client>(
-    `update clients set name = $3, nickname = $4, vat_number = $5, phone = $6, email = $7
+    `update clients set name = $3, nickname = $4, plate = $5, vat_number = $6, phone = $7, email = $8
      where user_id = $1 and id = $2 returning ${COLUMNS}`,
-    [userId, id, c.name, c.nickname, c.vat_number, c.phone, c.email],
+    [userId, id, c.name, c.nickname, c.plate, c.vat_number, c.phone, c.email],
   );
   return row ?? null;
 }

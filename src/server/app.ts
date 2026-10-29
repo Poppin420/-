@@ -225,6 +225,7 @@ route("POST", "/api/clients", true, async (req, ctx, user) => {
     const client = await createClient(ctx.db, user!.id, {
       name: str(body.name),
       nickname: optField(body.nickname),
+      plate: optField(body.plate),
       vat_number: optField(body.vat_number),
       phone: optField(body.phone),
       email: optField(body.email),
@@ -243,6 +244,7 @@ route("PUT", "/api/clients/:id", true, async (req, ctx, user, { id }) => {
     const client = await updateClient(ctx.db, user!.id, id!, {
       name: optField(body.name) ?? undefined,
       nickname: optField(body.nickname),
+      plate: optField(body.plate),
       vat_number: optField(body.vat_number),
       phone: optField(body.phone),
       email: optField(body.email),

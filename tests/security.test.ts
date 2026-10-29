@@ -45,7 +45,7 @@ describe("password hashing (scrypt)", () => {
 });
 
 describe("client name matching", () => {
-  const c = (name: string): Client => ({ id: name, name, nickname: null, vat_number: null, phone: null, email: null });
+  const c = (name: string): Client => ({ id: name, name, nickname: null, plate: null, vat_number: null, phone: null, email: null });
   const clients = ["Μαρία Παπαδοπούλου", "Νίκος Αντωνίου", "Γιώργος Παπαδόπουλος", "Ελένη", "Alpha Software ΑΕ", "Κώστας Νικολάου"].map(c);
 
   it.each([
@@ -68,7 +68,7 @@ describe("client name matching", () => {
   });
 
   it("matches a client by nickname as well as by official name", () => {
-    const withNick: Client = { id: "g", name: "Γιώργος Παπαδόπουλος", nickname: "Γιώργος σίδερα", vat_number: null, phone: null, email: null };
+    const withNick: Client = { id: "g", name: "Γιώργος Παπαδόπουλος", nickname: "Γιώργος σίδερα", plate: null, vat_number: null, phone: null, email: null };
     const pool = [withNick, c("Γιώργος Αντωνίου")];
     // Spoken nickname finds exactly the client it belongs to, not the other Γιώργος.
     expect(matchClients("Γιώργος σίδερα", pool).map((x) => x.id)).toEqual(["g"]);
