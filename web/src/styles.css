@@ -175,3 +175,8 @@ label.check input { width: auto; min-height: 0; }
 .nickname { color: var(--muted); }
 
 .payment-method { display: grid; gap: 4px; color: var(--muted); font-size: 0.9rem; margin: 10px 0; }
+
+.invoice-search { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.invoice-search input { flex: 1 1 10rem; min-width: 0; }
+.invoice-search select { flex: 0 0 auto; }
+.load-more { width: 100%; margin-top: 10px; }

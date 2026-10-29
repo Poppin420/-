@@ -20,7 +20,7 @@ import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
 import { BusinessProfile, loadProfile, profileIssues, saveProfile } from "../invoicing/profile";
-import { deleteDraft, getInvoice, issueChecks, listInvoices } from "../invoicing/invoices";
+import { deleteDraft, getInvoice, issueChecks, listInvoices, type InvoiceStatus } from "../invoicing/invoices";
 import { credentialStatus, deleteCredentials, saveCredentials, CredentialsError } from "../aade/credentials";
 import { SPEC, specReady } from "../aade/spec";
 import { issueInvoice, IssueError } from "../aade/issue";
@@ -346,7 +346,20 @@ route("POST", "/api/aade/test/:env", true, async () =>
 
 // --- invoices ---------------------------------------------------------------------
 
-route("GET", "/api/invoices", true, async (_req, ctx, user) => json(200, { invoices: await listInvoices(ctx.db, user!.id) }));
+const INVOICE_STATUSES = new Set<InvoiceStatus>(["draft", "sending", "issued", "rejected", "unknown", "cancelled"]);
+
+route("GET", "/api/invoices", true, async (req, ctx, user) => {
+  const q = new URL(req.url).searchParams;
+  const statusParam = q.get("status");
+  const status = statusParam && INVOICE_STATUSES.has(statusParam as InvoiceStatus) ? (statusParam as InvoiceStatus) : undefined;
+  const result = await listInvoices(ctx.db, user!.id, {
+    search: q.get("q") ?? undefined,
+    status,
+    limit: Number(q.get("limit")) || undefined,
+    offset: Number(q.get("offset")) || undefined,
+  });
+  return json(200, result);
+});
 
 route("GET", "/api/invoices/:id", true, async (_req, ctx, user, { id }) => {
   const invoice = await getInvoice(ctx.db, user!.id, id!);

@@ -114,7 +114,15 @@ export const api = {
   createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
   updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
 
-  invoices: () => request<{ invoices: InvoiceRow[] }>("GET", "/api/invoices"),
+  invoices: (params: { q?: string; status?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    if (params.status) qs.set("status", params.status);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return request<{ invoices: InvoiceRow[]; hasMore: boolean }>("GET", `/api/invoices${s ? `?${s}` : ""}`);
+  },
   invoice: (id: string) => request<InvoiceDetail>("GET", `/api/invoices/${id}`),
   deleteInvoice: (id: string) => request("POST", `/api/invoices/${id}/delete`),
   issueInvoice: (id: string, paymentMethod: string) =>
