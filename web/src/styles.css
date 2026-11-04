@@ -207,3 +207,11 @@ label.check input { width: auto; min-height: 0; }
 .chip.active { background: var(--accent, #4caf50); color: #fff; border-color: var(--accent, #4caf50); }
 .add-plate { display: flex; gap: 8px; margin-top: 8px; }
 .add-plate input { flex: 1; }
+.svc-car { margin-bottom: 12px; }
+.svc-title { margin: 8px 0 4px; font-weight: 600; }
+.svc-group { margin-bottom: 10px; }
+.svc-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.svc-btn { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: transparent; color: var(--fg); font-size: 1rem; min-height: 48px; }
+.svc-btn.active { background: var(--accent, #4caf50); color: #fff; border-color: var(--accent, #4caf50); font-weight: 600; }
+.svc-km { display: grid; gap: 4px; margin-top: 12px; color: var(--muted); font-size: 0.9rem; }
+.svc-amount { font-size: 1.3rem; padding: 12px; }
