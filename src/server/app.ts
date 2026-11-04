@@ -15,7 +15,8 @@ import { MAX_AUDIO_BYTES } from "../transcription/groqWhisper";
 import { CardInput, executeCard, previewCard, rebuildCard, type CardPreview } from "../actions/actions";
 import { cancelAppointment, getAppointment, listAppointments } from "../calendar/appointments";
 import { disconnect, finishConnect, isConnected, startConnect, syncToGoogle } from "../calendar/google";
-import { createClient, getClient, listClients, updateClient, ClientError } from "../clients/clients";
+import { createClient, getClient, listClients, searchClients, updateClient, ClientError } from "../clients/clients";
+import { createManualInvoice, ManualInvoiceError } from "../invoicing/manual";
 import {
   createVehicle,
   deleteVehicle,
@@ -240,6 +241,12 @@ route("POST", "/api/appointments/:id/sync", true, async (_req, ctx, user, { id }
 });
 
 route("GET", "/api/clients", true, async (_req, ctx, user) => json(200, { clients: await listClients(ctx.db, user!.id) }));
+
+// Server-side client search (name, nickname, VAT, phone, or a car's plate) for the home hub.
+route("GET", "/api/clients/search", true, async (req, ctx, user) => {
+  const q = new URL(req.url).searchParams.get("q") ?? "";
+  return json(200, { clients: await searchClients(ctx.db, user!.id, q) });
+});
 
 // A field is updated when it is a string (or null to clear it), left as-is when absent.
 const optField = (v: unknown): string | null | undefined => (typeof v === "string" ? v : v === null ? null : undefined);
@@ -572,6 +579,27 @@ route("GET", "/api/invoices", true, async (req, ctx, user) => {
     offset: Number(q.get("offset")) || undefined,
   });
   return json(200, result);
+});
+
+// Create a one-line invoice/receipt draft from a plain form (no voice, no parser).
+route("POST", "/api/invoices", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  try {
+    const result = await createManualInvoice(ctx.db, user!.id, {
+      client_id: str(body.client_id),
+      description: str(body.description),
+      amount: str(body.amount),
+      quantity: optField(body.quantity) || undefined,
+      price_basis: body.price_basis === "without_vat" ? "without_vat" : "with_vat",
+      documentTypeId: optField(body.documentTypeId) || undefined,
+      lineVatCategoryId: optField(body.lineVatCategoryId) || undefined,
+    });
+    if (!result) return error(404, "Ο πελάτης δεν βρέθηκε.");
+    return json(result.invoice ? 201 : 200, result);
+  } catch (e) {
+    if (e instanceof ManualInvoiceError) return error(400, e.message);
+    throw e;
+  }
 });
 
 route("GET", "/api/invoices/:id", true, async (_req, ctx, user, { id }) => {

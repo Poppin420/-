@@ -1,20 +1,34 @@
-import type { CardPreview, Choices, ExecutionResult } from "@core/actions/actions";
 import type { Appointment } from "@core/calendar/appointments";
 import type { Client } from "@core/clients/clients";
-import type { Vehicle, ServiceTarget } from "@core/vehicles/vehicles";
+import type { Vehicle } from "@core/vehicles/vehicles";
 import type { ServiceItem } from "@core/vehicles/serviceItems";
 import type { ServiceRecord } from "@core/vehicles/serviceRecords";
 import type { BusinessProfile } from "@core/invoicing/profile";
-import type { CheckResult, InvoiceRow } from "@core/invoicing/invoices";
+import type { CheckResult, InvoiceRow, InvoicePlan } from "@core/invoicing/invoices";
 import type { CredentialStatus } from "@core/aade/credentials";
 
-export type { CardPreview, Choices, ExecutionResult, Appointment, Client, Vehicle, ServiceTarget, ServiceItem, ServiceRecord, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+export type { Appointment, Client, Vehicle, ServiceItem, ServiceRecord, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
 
 /** Writable vehicle fields as sent from the UI; year may be a string the server coerces. */
 export type VehicleFields = Partial<Omit<Vehicle, "id" | "client_id" | "year">> & { year?: number | string | null };
 
 /** Writable service-record fields as sent from the UI; odometer may be a string. */
 export type ServiceFields = Partial<Omit<ServiceRecord, "id" | "vehicle_id" | "odometer">> & { odometer?: number | string | null };
+
+export interface ManualInvoiceInput {
+  client_id: string;
+  description: string;
+  amount: string;
+  price_basis: "with_vat" | "without_vat";
+  documentTypeId?: string;
+  lineVatCategoryId?: string;
+}
+export interface ManualInvoiceResult {
+  plan: InvoicePlan;
+  invoice: InvoiceRow | null;
+  blockers: string[];
+  warnings: string[];
+}
 
 export interface SpecInfo {
   version: string | null;
@@ -36,12 +50,6 @@ export interface InvoiceDetail {
 export interface Me {
   user: { id: string; email: string };
   google: { available: boolean; connected: boolean };
-}
-
-export interface CommandResponse {
-  transcript: string;
-  unrecognized: string[];
-  previews: CardPreview[];
 }
 
 export class ApiError extends Error {
@@ -87,18 +95,6 @@ export const api = {
     request("POST", "/api/auth/signup", { email, password, signupCode }),
   logout: () => request("POST", "/api/auth/logout"),
 
-  voice(audio: Blob) {
-    const form = new FormData();
-    form.append("audio", audio, "voice");
-    return request<CommandResponse>("POST", "/api/voice", form);
-  },
-  parse: (text: string) => request<CommandResponse>("POST", "/api/parse", { text }),
-
-  preview: (p: CardPreview, transcript: string, choices: Choices, answer?: { field: string; value: string }) =>
-    request<CardPreview>("POST", "/api/actions/preview", { card: cardInput(p), transcript, choices, answer }),
-  execute: (p: CardPreview, transcript: string, choices: Choices) =>
-    request<ExecutionResult>("POST", "/api/actions/execute", { card: cardInput(p), transcript, choices }),
-
   appointments: (from: string, to: string) =>
     request<{ appointments: Appointment[] }>("GET", `/api/appointments?from=${from}&to=${to}`),
   cancel: (id: string) => request<{ appointment: Appointment }>("POST", `/api/appointments/${id}/cancel`),
@@ -120,6 +116,7 @@ export const api = {
   testAade: (env: "test" | "prod") => request("POST", `/api/aade/test/${env}`),
 
   clients: () => request<{ clients: Client[] }>("GET", "/api/clients"),
+  searchClients: (q: string) => request<{ clients: Client[] }>("GET", `/api/clients/search?q=${encodeURIComponent(q)}`),
   createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
   updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
 
@@ -129,7 +126,6 @@ export const api = {
   updateVehicle: (id: string, data: VehicleFields) => request<{ vehicle: Vehicle }>("PUT", `/api/vehicles/${id}`, data),
   deleteVehicle: (id: string) => request("DELETE", `/api/vehicles/${id}`),
   findVehiclesByPlate: (plate: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/vehicles?plate=${encodeURIComponent(plate)}`),
-  serviceTargets: (q: string) => request<{ targets: ServiceTarget[] }>("GET", `/api/service-targets?q=${encodeURIComponent(q)}`),
 
   serviceItems: (activeOnly = false) =>
     request<{ items: ServiceItem[] }>("GET", `/api/service-items${activeOnly ? "?active=1" : ""}`),
@@ -156,12 +152,9 @@ export const api = {
     const s = qs.toString();
     return request<{ invoices: InvoiceRow[]; hasMore: boolean }>("GET", `/api/invoices${s ? `?${s}` : ""}`);
   },
+  createInvoice: (data: ManualInvoiceInput) => request<ManualInvoiceResult>("POST", "/api/invoices", data),
   invoice: (id: string) => request<InvoiceDetail>("GET", `/api/invoices/${id}`),
   deleteInvoice: (id: string) => request("POST", `/api/invoices/${id}/delete`),
   issueInvoice: (id: string, paymentMethod: string) =>
     request<{ checks: CheckResult[] }>("POST", `/api/invoices/${id}/issue`, { confirm: true, paymentMethod }),
 };
-
-function cardInput(p: CardPreview) {
-  return { id: p.card.id, raw: p.card.raw, userProvided: p.card.userProvided };
-}
