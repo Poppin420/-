@@ -129,7 +129,7 @@ export const api = {
   updateVehicle: (id: string, data: VehicleFields) => request<{ vehicle: Vehicle }>("PUT", `/api/vehicles/${id}`, data),
   deleteVehicle: (id: string) => request("DELETE", `/api/vehicles/${id}`),
   findVehiclesByPlate: (plate: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/vehicles?plate=${encodeURIComponent(plate)}`),
-  serviceTargets: () => request<{ targets: ServiceTarget[] }>("GET", "/api/service-targets"),
+  serviceTargets: (q: string) => request<{ targets: ServiceTarget[] }>("GET", `/api/service-targets?q=${encodeURIComponent(q)}`),
 
   serviceItems: (activeOnly = false) =>
     request<{ items: ServiceItem[] }>("GET", `/api/service-items${activeOnly ? "?active=1" : ""}`),

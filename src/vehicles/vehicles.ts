@@ -112,13 +112,27 @@ export interface ServiceTarget {
   client_nickname: string | null;
 }
 
-/** Every vehicle with its owner's name, so the UI can search by plate or by client. */
-export async function listServiceTargets(db: Db, userId: string): Promise<ServiceTarget[]> {
+/**
+ * Vehicles matching a search term (plate or owner name/nickname), each with its
+ * owner, capped so only a handful of rows travel to the client. The search runs
+ * on the server so the whole table is never loaded — it stays fast as the
+ * workshop's records grow to many thousands of cars.
+ */
+export async function searchServiceTargets(db: Db, userId: string, q: string, limit = 30): Promise<ServiceTarget[]> {
+  const term = q.trim();
+  if (!term) return [];
+  const name = `%${term}%`;
+  // Compare plates ignoring separators, matching the way they are typed/spoken.
+  const plate = term.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
   return db.query<ServiceTarget>(
     `select v.id, v.plate, v.make, v.model, v.client_id, c.name as client_name, c.nickname as client_nickname
      from vehicles v join clients c on c.id = v.client_id and c.user_id = v.user_id
-     where v.user_id = $1 order by c.name, v.plate limit 10000`,
-    [userId],
+     where v.user_id = $1
+       and (c.name ilike $2 or coalesce(c.nickname, '') ilike $2
+            or ($3 <> '' and upper(replace(replace(replace(v.plate, '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%'))
+     order by c.name, v.plate
+     limit $4`,
+    [userId, name, plate, Math.min(Math.max(limit, 1), 50)],
   );
 }
 
