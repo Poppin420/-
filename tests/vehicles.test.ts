@@ -77,18 +77,27 @@ describe("vehicles API", () => {
     expect(found[0].plate).toBe("ΥΧΨ-4321");
   });
 
-  it("lists service targets (vehicle + owner) and keeps them per user", async () => {
+  it("searches service targets by owner name and by plate, scoped per user", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);
     const clientId = await newClient(app, cookie, "Κάτοχος Αυτοκινήτου");
     await call(app, "POST", `/api/clients/${clientId}/vehicles`, { cookie, body: { plate: "ΤΑΡ-7777", make: "Seat" } });
-    const targets = (await call(app, "GET", "/api/service-targets", { cookie })).json.targets;
-    const row = targets.find((t: { plate: string }) => t.plate === "ΤΑΡ-7777");
-    expect(row).toBeTruthy();
-    expect(row.client_name).toBe("Κάτοχος Αυτοκινήτου");
+
+    // No query → nothing (the whole table is never dumped).
+    expect((await call(app, "GET", "/api/service-targets", { cookie })).json.targets).toHaveLength(0);
+
+    // By owner name.
+    const byName = (await call(app, "GET", "/api/service-targets?q=Κάτοχος", { cookie })).json.targets;
+    expect(byName.find((t: { plate: string }) => t.plate === "ΤΑΡ-7777")?.client_name).toBe("Κάτοχος Αυτοκινήτου");
+
+    // By plate, ignoring the dash the way it is typed.
+    const byPlate = (await call(app, "GET", `/api/service-targets?q=${encodeURIComponent("ταρ7777")}`, { cookie })).json.targets;
+    expect(byPlate).toHaveLength(1);
+    expect(byPlate[0].client_name).toBe("Κάτοχος Αυτοκινήτου");
+
     // Another fresh user sees none of them.
     const other = await signedIn(app);
-    expect((await call(app, "GET", "/api/service-targets", { cookie: other })).json.targets).toHaveLength(0);
+    expect((await call(app, "GET", "/api/service-targets?q=Κάτοχος", { cookie: other })).json.targets).toHaveLength(0);
   });
 
   it("does not let a user touch another user's vehicle", async () => {

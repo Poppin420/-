@@ -21,7 +21,7 @@ import {
   deleteVehicle,
   findVehiclesByPlate,
   getVehicle,
-  listServiceTargets,
+  searchServiceTargets,
   listVehicles,
   updateVehicle,
   VehicleError,
@@ -314,8 +314,12 @@ route("POST", "/api/clients/:id/vehicles", true, async (req, ctx, user, { id }) 
   }
 });
 
-// Every vehicle with its owner, for the quick service-entry picker (search by plate or name).
-route("GET", "/api/service-targets", true, async (_req, ctx, user) => json(200, { targets: await listServiceTargets(ctx.db, user!.id) }));
+// Search vehicles by plate or owner for the quick service-entry picker. Server-side
+// so only matches are returned — the whole table never loads, however large it gets.
+route("GET", "/api/service-targets", true, async (req, ctx, user) => {
+  const q = new URL(req.url).searchParams.get("q") ?? "";
+  return json(200, { targets: await searchServiceTargets(ctx.db, user!.id, q) });
+});
 
 // Find a vehicle by (spoken or typed) plate, across every client — for voice matching.
 route("GET", "/api/vehicles", true, async (req, ctx, user) => {

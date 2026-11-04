@@ -2,9 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, type ServiceItem, type ServiceTarget } from "./api";
 
 const today = () => new Date().toISOString().slice(0, 10);
-const normPlate = (v: string) => v.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
-const deaccent = (v: string) =>
-  v.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 type Draft = { serviced_on: string; odometer: string; work_type: string; notes: string; items: string[] };
 const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", items: [] });
@@ -15,43 +12,54 @@ const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type
  * per keystroke and no recording/transcription step that can hang.
  */
 export function ServiceEntryView() {
-  const [targets, setTargets] = useState<ServiceTarget[] | null>(null);
   const [checklist, setChecklist] = useState<ServiceItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<ServiceTarget[]>([]);
+  const [searching, setSearching] = useState(false);
   const [picked, setPicked] = useState<ServiceTarget | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // Only the (small) checklist loads up front, so the home screen opens instantly
+  // however large the database is.
   useEffect(() => {
     void (async () => {
       try {
-        // Two light requests in parallel so the screen is usable immediately.
-        const [{ targets }, { items }] = await Promise.all([api.serviceTargets(), api.serviceItems(true)]);
-        setTargets(targets);
-        setChecklist(items);
-      } catch (e) {
-        setError(e instanceof ApiError ? e.message : "Σφάλμα φόρτωσης.");
-        setTargets([]);
+        setChecklist((await api.serviceItems(true)).items);
+      } catch {
+        /* the checklist is optional for logging a job */
       }
     })();
   }, []);
 
-  const results = useMemo(() => {
-    if (!targets || query.trim().length === 0) return [];
-    const q = deaccent(query.trim());
-    const qPlate = normPlate(query);
-    return targets
-      .filter(
-        (t) =>
-          deaccent(t.client_name).includes(q) ||
-          (t.client_nickname && deaccent(t.client_nickname).includes(q)) ||
-          (qPlate.length >= 1 && normPlate(t.plate).includes(qPlate)),
-      )
-      .slice(0, 40);
-  }, [targets, query]);
+  // Search runs on the server, debounced, with the latest query winning the race.
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length === 0) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    let active = true;
+    const id = setTimeout(async () => {
+      try {
+        const { targets } = await api.serviceTargets(term);
+        if (active) setResults(targets);
+      } catch (e) {
+        if (active) setError(e instanceof ApiError ? e.message : "Σφάλμα αναζήτησης.");
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(id);
+    };
+  }, [query]);
 
   const groups = useMemo(() => {
     return checklist.reduce<Record<string, ServiceItem[]>>((acc, it) => {
@@ -181,10 +189,10 @@ export function ServiceEntryView() {
       </div>
 
       <div className="panel">
-        {targets === null ? (
-          <p className="note">Φόρτωση…</p>
-        ) : query.trim().length === 0 ? (
+        {query.trim().length === 0 ? (
           <p className="note">Ξεκίνα να γράφεις για να βρεις αμάξι ή πελάτη.</p>
+        ) : searching && results.length === 0 ? (
+          <p className="note">Αναζήτηση…</p>
         ) : results.length === 0 ? (
           <>
             <p className="note">Δεν βρέθηκε αμάξι ή πελάτης.</p>
