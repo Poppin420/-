@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setUnauthorizedHandler, type Me } from "./api";
 import { ServiceEntryView } from "./ServiceEntryView";
+import { VehicleHistoryView } from "./VehicleHistoryView";
 import { AuthScreen } from "./AuthScreen";
-import { CalendarView } from "./CalendarView";
 import { SettingsView } from "./SettingsView";
 import { InvoicesView } from "./InvoicesView";
 import { ProfileView } from "./ProfileView";
@@ -11,11 +11,11 @@ import { ClientsView } from "./ClientsView";
 import { ServiceChecklistView } from "./ServiceChecklistView";
 import { GarageImportView } from "./GarageImportView";
 
-type Tab = "service" | "calendar" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import";
+type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["calendar", "invoices", "settings", "profile", "aade", "clients", "checklist", "import"];
+  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import"];
   const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "service";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
@@ -58,7 +58,7 @@ export function App() {
       </header>
 
       {tab === "service" && <ServiceEntryView />}
-      {tab === "calendar" && <CalendarView googleConnected={me.google.connected} />}
+      {tab === "history" && <VehicleHistoryView />}
       {tab === "invoices" && <InvoicesView />}
       {tab === "settings" && (
         <SettingsView me={me} notice={notice} onChanged={loadMe} onLoggedOut={() => setMe(null)} />
@@ -73,8 +73,8 @@ export function App() {
         <button className={tab === "service" ? "active" : ""} onClick={() => go("service")}>
           🔧<span>Εργασία</span>
         </button>
-        <button className={tab === "calendar" ? "active" : ""} onClick={() => go("calendar")}>
-          📅<span>Ημερολόγιο</span>
+        <button className={tab === "history" ? "active" : ""} onClick={() => go("history")}>
+          🚗<span>Ιστορικό</span>
         </button>
         <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
           🧾<span>Παραστατικά</span>

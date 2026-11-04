@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatEuro } from "@core/intent-parsing/resolve";
 import { api, ApiError, type Client, type ServiceItem, type Vehicle } from "./api";
 
@@ -62,7 +62,7 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
     <section className="service-entry">
       <div className="panel">
         <h2>Νέα εργασία</h2>
-        <p className="note">Γράψε όνομα πελάτη ή πινακίδα. Διάλεξε τον πελάτη για να σημειώσεις τι έγινε ή να κόψεις απόδειξη.</p>
+        <p className="note">Γράψε όνομα πελάτη ή πινακίδα. Μετά δουλεύεις με κουμπιά.</p>
         {error && (
           <p className="error" role="alert">
             {error}
@@ -116,10 +116,26 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
   );
 }
 
-// --- One customer: log work or issue a receipt --------------------------------
+// --- One customer: the service buttons flow straight into the receipt ----------
 
 function ClientHub({ client, onBack }: { client: Client; onBack: () => void }) {
+  const [checklist, setChecklist] = useState<ServiceItem[] | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
   const [mode, setMode] = useState<"service" | "receipt">("service");
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setChecklist((await api.serviceItems(true)).items);
+      } catch {
+        setChecklist([]);
+      }
+    })();
+  }, []);
+
+  const toggle = (label: string) =>
+    setSelected((s) => (s.includes(label) ? s.filter((i) => i !== label) : [...s, label]));
+
   return (
     <section className="service-entry">
       <div className="panel">
@@ -138,35 +154,46 @@ function ClientHub({ client, onBack }: { client: Client; onBack: () => void }) {
             🔧 Τι έγινε
           </button>
           <button className={mode === "receipt" ? "active" : ""} onClick={() => setMode("receipt")}>
-            🧾 Απόδειξη
+            🧾 Απόδειξη {selected.length > 0 ? `(${selected.length})` : ""}
           </button>
         </div>
       </div>
-      {mode === "service" ? <ServiceLog client={client} /> : <ReceiptForm client={client} />}
+      {mode === "service" ? (
+        <ServiceLog client={client} checklist={checklist} selected={selected} onToggle={toggle} onGoReceipt={() => setMode("receipt")} />
+      ) : (
+        <ReceiptForm client={client} selected={selected} />
+      )}
     </section>
   );
 }
 
-// --- Log what was done (per car) ----------------------------------------------
+// --- "Τι έγινε": big service buttons, optional car + km -------------------------
 
-type SDraft = { serviced_on: string; odometer: string; work_type: string; notes: string; items: string[] };
-const emptyS = (): SDraft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", items: [] });
-
-function ServiceLog({ client }: { client: Client }) {
+function ServiceLog({
+  client,
+  checklist,
+  selected,
+  onToggle,
+  onGoReceipt,
+}: {
+  client: Client;
+  checklist: ServiceItem[] | null;
+  selected: string[];
+  onToggle: (label: string) => void;
+  onGoReceipt: () => void;
+}) {
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
-  const [checklist, setChecklist] = useState<ServiceItem[]>([]);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [newPlate, setNewPlate] = useState("");
-  const [draft, setDraft] = useState<SDraft>(emptyS);
+  const [km, setKm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
   const load = async () => {
     try {
-      const [{ vehicles }, { items }] = await Promise.all([api.vehicles(client.id), api.serviceItems(true)]);
+      const { vehicles } = await api.vehicles(client.id);
       setVehicles(vehicles);
-      setChecklist(items);
       if (vehicles.length === 1) setVehicleId(vehicles[0]!.id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Σφάλμα φόρτωσης.");
@@ -179,7 +206,7 @@ function ServiceLog({ client }: { client: Client }) {
 
   const groups = useMemo(
     () =>
-      checklist.reduce<Record<string, ServiceItem[]>>((acc, it) => {
+      (checklist ?? []).reduce<Record<string, ServiceItem[]>>((acc, it) => {
         (acc[it.category ?? "Άλλα"] ??= []).push(it);
         return acc;
       }, {}),
@@ -202,24 +229,14 @@ function ServiceLog({ client }: { client: Client }) {
     }
   };
 
-  const toggle = (label: string) =>
-    setDraft((d) => ({ ...d, items: d.items.includes(label) ? d.items.filter((i) => i !== label) : [...d.items, label] }));
-
-  const save = async () => {
+  const saveHistory = async () => {
     if (!vehicleId) return;
     setBusy(true);
     setError(null);
     try {
-      await api.createService(vehicleId, {
-        serviced_on: draft.serviced_on,
-        odometer: draft.odometer,
-        work_type: draft.work_type,
-        notes: draft.notes,
-        items: draft.items,
-      });
+      await api.createService(vehicleId, { serviced_on: today(), odometer: km, items: selected });
       const plate = vehicles?.find((v) => v.id === vehicleId)?.plate ?? "";
-      setFlash(`✓ Καταχωρήθηκε ${plate}`);
-      setDraft(emptyS());
+      setFlash(`✓ Καταχωρήθηκε στο ιστορικό ${plate}`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Σφάλμα αποθήκευσης.");
     } finally {
@@ -236,12 +253,10 @@ function ServiceLog({ client }: { client: Client }) {
         </p>
       )}
 
-      {vehicles === null ? (
-        <p className="note">Φόρτωση…</p>
-      ) : (
-        <>
-          <label>
-            Όχημα
+      {/* Car: optional, needed only to save to history */}
+      {vehicles !== null && (
+        <div className="svc-car">
+          {vehicles.length > 0 && (
             <div className="chips">
               {vehicles.map((v) => (
                 <button key={v.id} className={`chip ${vehicleId === v.id ? "active" : ""}`} onClick={() => setVehicleId(v.id)}>
@@ -250,62 +265,60 @@ function ServiceLog({ client }: { client: Client }) {
                 </button>
               ))}
             </div>
-          </label>
-          <div className="add-plate">
-            <input value={newPlate} placeholder="Νέα πινακίδα…" autoCapitalize="characters" onChange={(e) => setNewPlate(e.target.value)} />
-            <button disabled={busy || !newPlate.trim()} onClick={addVehicle}>
-              ➕ Όχημα
-            </button>
-          </div>
-        </>
-      )}
-
-      {vehicleId && (
-        <div className="form-grid" style={{ marginTop: 12 }}>
-          <label>
-            Ημερομηνία
-            <input type="date" value={draft.serviced_on} onChange={(e) => setDraft({ ...draft, serviced_on: e.target.value })} />
-          </label>
-          <label>
-            Χιλιόμετρα
-            <input inputMode="numeric" value={draft.odometer} placeholder="π.χ. 135000" onChange={(e) => setDraft({ ...draft, odometer: e.target.value })} />
-          </label>
-          <label>
-            Είδος εργασίας
-            <input value={draft.work_type} placeholder="π.χ. Μεγάλο service" onChange={(e) => setDraft({ ...draft, work_type: e.target.value })} />
-          </label>
-          {checklist.length > 0 && (
-            <div className="checklist">
-              <span className="note">Τι έγινε:</span>
-              {Object.entries(groups).map(([cat, items]) => (
-                <div key={cat} className="checklist-group">
-                  <strong className="note">{cat}</strong>
-                  {items.map((it) => (
-                    <label key={it.id} className="checkbox">
-                      <input type="checkbox" checked={draft.items.includes(it.label)} onChange={() => toggle(it.label)} />
-                      {it.label}
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </div>
           )}
-          <label>
-            Σημειώσεις
-            <textarea value={draft.notes} rows={2} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
-          </label>
-          <div className="actions">
-            <button className="primary" disabled={busy || !draft.serviced_on} onClick={save}>
-              {busy ? "Αποθήκευση…" : "Καταχώρηση"}
+          <div className="add-plate">
+            <input value={newPlate} placeholder="Πινακίδα αμαξιού…" autoCapitalize="characters" onChange={(e) => setNewPlate(e.target.value)} />
+            <button disabled={busy || !newPlate.trim()} onClick={addVehicle}>
+              ➕ Αμάξι
             </button>
           </div>
         </div>
+      )}
+
+      {/* The service buttons, always visible */}
+      <p className="note svc-title">Πάτα ό,τι έκανες:</p>
+      {checklist === null ? (
+        <p className="note">Φόρτωση…</p>
+      ) : checklist.length === 0 ? (
+        <p className="note">
+          Δεν υπάρχουν υπηρεσίες ακόμη. Πρόσθεσέ τες από Ρυθμίσεις → «Λίστα εργασιών».
+        </p>
+      ) : (
+        Object.entries(groups).map(([cat, items]) => (
+          <div key={cat} className="svc-group">
+            <strong className="note">{cat}</strong>
+            <div className="svc-grid">
+              {items.map((it) => (
+                <button key={it.id} className={`svc-btn ${selected.includes(it.label) ? "active" : ""}`} onClick={() => onToggle(it.label)}>
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+
+      <label className="svc-km">
+        Χιλιόμετρα (προαιρετικό)
+        <input inputMode="numeric" value={km} placeholder="π.χ. 135000" onChange={(e) => setKm(e.target.value)} />
+      </label>
+
+      <div className="actions">
+        <button className="primary" disabled={busy || selected.length === 0} onClick={onGoReceipt}>
+          Απόδειξη → ({selected.length})
+        </button>
+        <button disabled={busy || !vehicleId || selected.length === 0} onClick={saveHistory} title={!vehicleId ? "Διάλεξε ή πρόσθεσε αμάξι" : ""}>
+          Αποθήκευση στο ιστορικό
+        </button>
+      </div>
+      {!vehicleId && vehicles !== null && selected.length > 0 && (
+        <p className="note">Για να κρατηθεί στο ιστορικό του αμαξιού, διάλεξε ή πρόσθεσε πινακίδα πάνω. (Για απόδειξη δεν χρειάζεται.)</p>
       )}
     </div>
   );
 }
 
-// --- Issue a receipt ----------------------------------------------------------
+// --- "Τι χρεώνεις": prefilled from the chosen services -------------------------
 
 const PAYMENT_METHODS: Array<{ code: string; label: string }> = [
   { code: "3", label: "Μετρητά" },
@@ -315,8 +328,8 @@ const PAYMENT_METHODS: Array<{ code: string; label: string }> = [
   { code: "8", label: "IRIS" },
 ];
 
-function ReceiptForm({ client }: { client: Client }) {
-  const [description, setDescription] = useState("");
+function ReceiptForm({ client, selected }: { client: Client; selected: string[] }) {
+  const [description, setDescription] = useState(selected.join(", "));
   const [amount, setAmount] = useState("");
   const [withVat, setWithVat] = useState(true);
   const [docChoice, setDocChoice] = useState<string | undefined>();
@@ -345,7 +358,6 @@ function ReceiptForm({ client }: { client: Client }) {
         setDraftId(res.invoice.id);
         setGross(res.invoice.draft.calc.totals.gross);
       } else {
-        // The profile needs a choice (document type) or is incomplete.
         setDocOptions(res.plan.documentTypeChoice.options);
         setBlockers(res.blockers.length ? res.blockers : ["Συμπλήρωσε το προφίλ επιχείρησης από τις Ρυθμίσεις."]);
       }
@@ -381,12 +393,11 @@ function ReceiptForm({ client }: { client: Client }) {
     );
   }
 
-  // Draft made — offer issuing.
   if (draftId) {
     return (
       <div className="panel">
         <p>
-          Προσχέδιο έτοιμο — σύνολο <strong>{gross ? formatEuro(gross) : ""}</strong> για «{description}».
+          Σύνολο <strong>{gross ? formatEuro(gross) : ""}</strong> — «{description}».
         </p>
         {error && (
           <p className="error" role="alert">
@@ -436,7 +447,7 @@ function ReceiptForm({ client }: { client: Client }) {
         </label>
         <label>
           Ποσό (€)
-          <input inputMode="decimal" value={amount} placeholder="π.χ. 80" onChange={(e) => setAmount(e.target.value)} />
+          <input className="svc-amount" inputMode="decimal" value={amount} placeholder="π.χ. 80" onChange={(e) => setAmount(e.target.value)} />
         </label>
         <div className="seg">
           <button className={withVat ? "active" : ""} onClick={() => setWithVat(true)}>
