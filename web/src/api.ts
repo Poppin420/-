@@ -1,11 +1,20 @@
 import type { CardPreview, Choices, ExecutionResult } from "@core/actions/actions";
 import type { Appointment } from "@core/calendar/appointments";
 import type { Client } from "@core/clients/clients";
+import type { Vehicle, ServiceTarget } from "@core/vehicles/vehicles";
+import type { ServiceItem } from "@core/vehicles/serviceItems";
+import type { ServiceRecord } from "@core/vehicles/serviceRecords";
 import type { BusinessProfile } from "@core/invoicing/profile";
 import type { CheckResult, InvoiceRow } from "@core/invoicing/invoices";
 import type { CredentialStatus } from "@core/aade/credentials";
 
-export type { CardPreview, Choices, ExecutionResult, Appointment, Client, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+export type { CardPreview, Choices, ExecutionResult, Appointment, Client, Vehicle, ServiceTarget, ServiceItem, ServiceRecord, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+
+/** Writable vehicle fields as sent from the UI; year may be a string the server coerces. */
+export type VehicleFields = Partial<Omit<Vehicle, "id" | "client_id" | "year">> & { year?: number | string | null };
+
+/** Writable service-record fields as sent from the UI; odometer may be a string. */
+export type ServiceFields = Partial<Omit<ServiceRecord, "id" | "vehicle_id" | "odometer">> & { odometer?: number | string | null };
 
 export interface SpecInfo {
   version: string | null;
@@ -114,7 +123,39 @@ export const api = {
   createClient: (data: Partial<Client> & { name: string }) => request<{ client: Client }>("POST", "/api/clients", data),
   updateClient: (id: string, data: Partial<Client>) => request<{ client: Client }>("PUT", `/api/clients/${id}`, data),
 
-  invoices: () => request<{ invoices: InvoiceRow[] }>("GET", "/api/invoices"),
+  vehicles: (clientId: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/clients/${clientId}/vehicles`),
+  createVehicle: (clientId: string, data: VehicleFields & { plate: string }) =>
+    request<{ vehicle: Vehicle }>("POST", `/api/clients/${clientId}/vehicles`, data),
+  updateVehicle: (id: string, data: VehicleFields) => request<{ vehicle: Vehicle }>("PUT", `/api/vehicles/${id}`, data),
+  deleteVehicle: (id: string) => request("DELETE", `/api/vehicles/${id}`),
+  findVehiclesByPlate: (plate: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/vehicles?plate=${encodeURIComponent(plate)}`),
+  serviceTargets: () => request<{ targets: ServiceTarget[] }>("GET", "/api/service-targets"),
+
+  serviceItems: (activeOnly = false) =>
+    request<{ items: ServiceItem[] }>("GET", `/api/service-items${activeOnly ? "?active=1" : ""}`),
+  createServiceItem: (data: { label: string; category?: string | null }) =>
+    request<{ item: ServiceItem }>("POST", "/api/service-items", data),
+  updateServiceItem: (id: string, data: Partial<ServiceItem>) => request<{ item: ServiceItem }>("PUT", `/api/service-items/${id}`, data),
+  deleteServiceItem: (id: string) => request("DELETE", `/api/service-items/${id}`),
+
+  importGarage: (rows: Record<string, string>[]) =>
+    request<{ summary: Record<string, number> }>("POST", "/api/import/garage", { rows }),
+
+  services: (vehicleId: string) => request<{ records: ServiceRecord[] }>("GET", `/api/vehicles/${vehicleId}/services`),
+  createService: (vehicleId: string, data: ServiceFields) =>
+    request<{ record: ServiceRecord }>("POST", `/api/vehicles/${vehicleId}/services`, data),
+  updateService: (id: string, data: ServiceFields) => request<{ record: ServiceRecord }>("PUT", `/api/services/${id}`, data),
+  deleteService: (id: string) => request("DELETE", `/api/services/${id}`),
+
+  invoices: (params: { q?: string; status?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    if (params.status) qs.set("status", params.status);
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    const s = qs.toString();
+    return request<{ invoices: InvoiceRow[]; hasMore: boolean }>("GET", `/api/invoices${s ? `?${s}` : ""}`);
+  },
   invoice: (id: string) => request<InvoiceDetail>("GET", `/api/invoices/${id}`),
   deleteInvoice: (id: string) => request("POST", `/api/invoices/${id}/delete`),
   issueInvoice: (id: string, paymentMethod: string) =>

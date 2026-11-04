@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setUnauthorizedHandler, type Me } from "./api";
-import { AssistantView } from "./AssistantView";
+import { ServiceEntryView } from "./ServiceEntryView";
 import { AuthScreen } from "./AuthScreen";
 import { CalendarView } from "./CalendarView";
 import { SettingsView } from "./SettingsView";
@@ -8,13 +8,15 @@ import { InvoicesView } from "./InvoicesView";
 import { ProfileView } from "./ProfileView";
 import { AadeView } from "./AadeView";
 import { ClientsView } from "./ClientsView";
+import { ServiceChecklistView } from "./ServiceChecklistView";
+import { GarageImportView } from "./GarageImportView";
 
-type Tab = "assistant" | "calendar" | "invoices" | "settings" | "profile" | "aade" | "clients";
+type Tab = "service" | "calendar" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["calendar", "invoices", "settings", "profile", "aade", "clients"];
-  const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "assistant";
+  const routes: Tab[] = ["calendar", "invoices", "settings", "profile", "aade", "clients", "checklist", "import"];
+  const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "service";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
     google === "connected" ? "Το Google Calendar συνδέθηκε." : google === "error" ? "Η σύνδεση με Google απέτυχε. Δοκίμασε ξανά." : null;
@@ -45,19 +47,17 @@ export function App() {
   if (me === null) return <AuthScreen onSignedIn={loadMe} />;
 
   const go = (t: Tab) => {
-    window.location.hash = t === "assistant" ? "#/" : `#/${t}`;
+    window.location.hash = t === "service" ? "#/" : `#/${t}`;
   };
 
   return (
     <main className="app with-nav">
       <header className="top">
-        <h1>Βοηθός</h1>
+        <h1>Συνεργείο</h1>
         <span className="env test">ΔΟΚΙΜΑΣΤΙΚΟ</span>
       </header>
 
-      <div hidden={tab !== "assistant"}>
-        <AssistantView />
-      </div>
+      {tab === "service" && <ServiceEntryView />}
       {tab === "calendar" && <CalendarView googleConnected={me.google.connected} />}
       {tab === "invoices" && <InvoicesView />}
       {tab === "settings" && (
@@ -66,10 +66,12 @@ export function App() {
       {tab === "profile" && <ProfileView />}
       {tab === "aade" && <AadeView />}
       {tab === "clients" && <ClientsView />}
+      {tab === "checklist" && <ServiceChecklistView />}
+      {tab === "import" && <GarageImportView />}
 
       <nav className="tabbar" aria-label="Κύρια πλοήγηση">
-        <button className={tab === "assistant" ? "active" : ""} onClick={() => go("assistant")}>
-          🎙️<span>Βοηθός</span>
+        <button className={tab === "service" ? "active" : ""} onClick={() => go("service")}>
+          🔧<span>Εργασία</span>
         </button>
         <button className={tab === "calendar" ? "active" : ""} onClick={() => go("calendar")}>
           📅<span>Ημερολόγιο</span>
@@ -77,7 +79,7 @@ export function App() {
         <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
           🧾<span>Παραστατικά</span>
         </button>
-        <button className={["settings", "profile", "aade", "clients"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
+        <button className={["settings", "profile", "aade", "clients", "checklist", "import"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
           ⚙️<span>Ρυθμίσεις</span>
         </button>
       </nav>

@@ -100,7 +100,7 @@ export async function findTargets(
   return rows.filter((a) => {
     if (criteria.time && DateTime.fromISO(a.starts_at, { setZone: true }).toFormat("HH:mm") !== criteria.time) return false;
     if (criteria.clientName) {
-      const asClient: Client = { id: a.id, name: a.client_name, nickname: null, vat_number: null, phone: null, email: null };
+      const asClient: Client = { id: a.id, name: a.client_name, nickname: null, plate: null, vat_number: null, phone: null, email: null };
       if (matchClients(criteria.clientName, [asClient]).length === 0) return false;
     }
     return true;
