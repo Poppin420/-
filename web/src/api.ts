@@ -1,13 +1,13 @@
 import type { Appointment } from "@core/calendar/appointments";
 import type { Client } from "@core/clients/clients";
-import type { Vehicle } from "@core/vehicles/vehicles";
+import type { Vehicle, ServiceTarget } from "@core/vehicles/vehicles";
 import type { ServiceItem } from "@core/vehicles/serviceItems";
 import type { ServiceRecord } from "@core/vehicles/serviceRecords";
 import type { BusinessProfile } from "@core/invoicing/profile";
 import type { CheckResult, InvoiceRow, InvoicePlan } from "@core/invoicing/invoices";
 import type { CredentialStatus } from "@core/aade/credentials";
 
-export type { Appointment, Client, Vehicle, ServiceItem, ServiceRecord, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
+export type { Appointment, Client, Vehicle, ServiceTarget, ServiceItem, ServiceRecord, BusinessProfile, CheckResult, InvoiceRow, CredentialStatus };
 
 /** Writable vehicle fields as sent from the UI; year may be a string the server coerces. */
 export type VehicleFields = Partial<Omit<Vehicle, "id" | "client_id" | "year">> & { year?: number | string | null };
@@ -126,6 +126,7 @@ export const api = {
   updateVehicle: (id: string, data: VehicleFields) => request<{ vehicle: Vehicle }>("PUT", `/api/vehicles/${id}`, data),
   deleteVehicle: (id: string) => request("DELETE", `/api/vehicles/${id}`),
   findVehiclesByPlate: (plate: string) => request<{ vehicles: Vehicle[] }>("GET", `/api/vehicles?plate=${encodeURIComponent(plate)}`),
+  serviceTargets: (q: string) => request<{ targets: ServiceTarget[] }>("GET", `/api/service-targets?q=${encodeURIComponent(q)}`),
 
   serviceItems: (activeOnly = false) =>
     request<{ items: ServiceItem[] }>("GET", `/api/service-items${activeOnly ? "?active=1" : ""}`),
