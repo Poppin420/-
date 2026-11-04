@@ -77,6 +77,20 @@ describe("vehicles API", () => {
     expect(found[0].plate).toBe("ΥΧΨ-4321");
   });
 
+  it("lists service targets (vehicle + owner) and keeps them per user", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    const clientId = await newClient(app, cookie, "Κάτοχος Αυτοκινήτου");
+    await call(app, "POST", `/api/clients/${clientId}/vehicles`, { cookie, body: { plate: "ΤΑΡ-7777", make: "Seat" } });
+    const targets = (await call(app, "GET", "/api/service-targets", { cookie })).json.targets;
+    const row = targets.find((t: { plate: string }) => t.plate === "ΤΑΡ-7777");
+    expect(row).toBeTruthy();
+    expect(row.client_name).toBe("Κάτοχος Αυτοκινήτου");
+    // Another fresh user sees none of them.
+    const other = await signedIn(app);
+    expect((await call(app, "GET", "/api/service-targets", { cookie: other })).json.targets).toHaveLength(0);
+  });
+
   it("does not let a user touch another user's vehicle", async () => {
     const { app } = makeContext(db);
     const owner = await signedIn(app);
