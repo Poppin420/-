@@ -198,3 +198,12 @@ label.check input { width: auto; min-height: 0; }
 .target-go { color: var(--muted); font-size: 1.3rem; }
 .link-back { background: transparent; border: none; color: var(--muted); padding: 0 0 8px; }
 .ok-note { color: var(--accent, #4caf50); }
+.add-new { width: 100%; margin-top: 10px; }
+.seg { display: flex; gap: 0; margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; background: transparent; border: none; border-radius: 0; padding: 10px; color: var(--fg); }
+.seg button.active { background: var(--accent, #4caf50); color: #fff; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; background: transparent; color: var(--fg); }
+.chip.active { background: var(--accent, #4caf50); color: #fff; border-color: var(--accent, #4caf50); }
+.add-plate { display: flex; gap: 8px; margin-top: 8px; }
+.add-plate input { flex: 1; }

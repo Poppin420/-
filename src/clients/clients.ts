@@ -66,6 +66,31 @@ export async function listClients(db: Db, userId: string): Promise<Client[]> {
   return db.query<Client>(`select ${COLUMNS} from clients where user_id = $1 order by name limit 5000`, [userId]);
 }
 
+/**
+ * Clients matching a search term: by name, nickname, VAT or phone, or by the
+ * plate of any car they own. Runs on the server and is capped, so it stays fast
+ * however large the customer list grows.
+ */
+export async function searchClients(db: Db, userId: string, q: string, limit = 25): Promise<Client[]> {
+  const term = q.trim();
+  if (!term) return [];
+  const like = `%${term}%`;
+  const plate = term.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
+  return db.query<Client>(
+    `select ${COLUMNS} from clients c
+     where c.user_id = $1 and (
+       c.name ilike $2 or coalesce(c.nickname, '') ilike $2
+       or coalesce(c.vat_number, '') ilike $2 or coalesce(c.phone, '') ilike $2
+       or ($3 <> '' and upper(replace(replace(replace(coalesce(c.plate, ''), '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%')
+       or ($3 <> '' and exists (
+         select 1 from vehicles v where v.client_id = c.id and v.user_id = c.user_id
+           and upper(replace(replace(replace(v.plate, '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%'))
+     )
+     order by c.name limit $4`,
+    [userId, like, plate, Math.min(Math.max(limit, 1), 50)],
+  );
+}
+
 export async function getClient(db: Db, userId: string, id: string): Promise<Client | null> {
   if (!isUuid(id)) return null;
   const [row] = await db.query<Client>(`select ${COLUMNS} from clients where user_id = $1 and id = $2`, [userId, id]);
