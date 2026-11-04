@@ -189,3 +189,12 @@ label.check input { width: auto; min-height: 0; }
 .checklist-group { display: grid; gap: 4px; }
 .checkbox { display: flex; align-items: center; gap: 8px; color: var(--fg); font-size: 0.95rem; }
 .checkbox input { width: auto; margin: 0; }
+
+.service-search { width: 100%; font-size: 1.1rem; padding: 12px; }
+.target-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.target-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: transparent; }
+.target-row:hover { border-color: var(--accent, #4caf50); }
+.target-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.target-go { color: var(--muted); font-size: 1.3rem; }
+.link-back { background: transparent; border: none; color: var(--muted); padding: 0 0 8px; }
+.ok-note { color: var(--accent, #4caf50); }

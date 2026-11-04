@@ -21,6 +21,7 @@ import {
   deleteVehicle,
   findVehiclesByPlate,
   getVehicle,
+  listServiceTargets,
   listVehicles,
   updateVehicle,
   VehicleError,
@@ -312,6 +313,9 @@ route("POST", "/api/clients/:id/vehicles", true, async (req, ctx, user, { id }) 
     throw e;
   }
 });
+
+// Every vehicle with its owner, for the quick service-entry picker (search by plate or name).
+route("GET", "/api/service-targets", true, async (_req, ctx, user) => json(200, { targets: await listServiceTargets(ctx.db, user!.id) }));
 
 // Find a vehicle by (spoken or typed) plate, across every client — for voice matching.
 route("GET", "/api/vehicles", true, async (req, ctx, user) => {

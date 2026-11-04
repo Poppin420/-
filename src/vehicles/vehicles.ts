@@ -101,6 +101,27 @@ export async function findVehiclesByPlate(db: Db, userId: string, spoken: string
     .map(({ v }) => v);
 }
 
+/** A vehicle together with its owner, for the quick "log a service" picker. */
+export interface ServiceTarget {
+  id: string;
+  plate: string;
+  make: string | null;
+  model: string | null;
+  client_id: string;
+  client_name: string;
+  client_nickname: string | null;
+}
+
+/** Every vehicle with its owner's name, so the UI can search by plate or by client. */
+export async function listServiceTargets(db: Db, userId: string): Promise<ServiceTarget[]> {
+  return db.query<ServiceTarget>(
+    `select v.id, v.plate, v.make, v.model, v.client_id, c.name as client_name, c.nickname as client_nickname
+     from vehicles v join clients c on c.id = v.client_id and c.user_id = v.user_id
+     where v.user_id = $1 order by c.name, v.plate limit 10000`,
+    [userId],
+  );
+}
+
 export async function createVehicle(db: Db, userId: string, data: VehicleInput): Promise<Vehicle> {
   const v = clean(data);
   if (!(await clientExists(db, userId, v.client_id))) throw new VehicleError("Ο πελάτης δεν βρέθηκε.");
