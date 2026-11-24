@@ -245,6 +245,13 @@ create table service_records (
 create index service_records_user_vehicle_idx on service_records (user_id, vehicle_id, serviced_on desc);
 `,
   },
+  {
+    id: "008_service_record_date_optional",
+    sql: `
+-- Imported historical records may not carry a date; allow it to be unknown.
+alter table service_records alter column serviced_on drop not null;
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {

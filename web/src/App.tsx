@@ -10,12 +10,13 @@ import { AadeView } from "./AadeView";
 import { ClientsView } from "./ClientsView";
 import { ServiceChecklistView } from "./ServiceChecklistView";
 import { GarageImportView } from "./GarageImportView";
+import { ServiceImportView } from "./ServiceImportView";
 
-type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import";
+type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import" | "import-history";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import"];
+  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import-history", "import"];
   const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "service";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
@@ -68,6 +69,7 @@ export function App() {
       {tab === "clients" && <ClientsView />}
       {tab === "checklist" && <ServiceChecklistView />}
       {tab === "import" && <GarageImportView />}
+      {tab === "import-history" && <ServiceImportView />}
 
       <nav className="tabbar" aria-label="Κύρια πλοήγηση">
         <button className={tab === "service" ? "active" : ""} onClick={() => go("service")}>
@@ -79,7 +81,7 @@ export function App() {
         <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
           🧾<span>Παραστατικά</span>
         </button>
-        <button className={["settings", "profile", "aade", "clients", "checklist", "import"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
+        <button className={["settings", "profile", "aade", "clients", "checklist", "import", "import-history"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
           ⚙️<span>Ρυθμίσεις</span>
         </button>
       </nav>

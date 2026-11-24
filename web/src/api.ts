@@ -137,6 +137,8 @@ export const api = {
 
   importGarage: (rows: Record<string, string>[]) =>
     request<{ summary: Record<string, number> }>("POST", "/api/import/garage", { rows }),
+  importServiceHistory: (rows: Record<string, unknown>[]) =>
+    request<{ summary: Record<string, number> }>("POST", "/api/import/service", { rows }),
 
   services: (vehicleId: string) => request<{ records: ServiceRecord[] }>("GET", `/api/vehicles/${vehicleId}/services`),
   createService: (vehicleId: string, data: ServiceFields) =>
