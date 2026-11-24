@@ -56,7 +56,6 @@ export function App() {
     <main className="app with-nav">
       <header className="top">
         <h1>Συνεργείο</h1>
-        <span className="env test">ΔΟΚΙΜΑΣΤΙΚΟ</span>
       </header>
 
       {tab === "service" && <ServiceEntryView />}

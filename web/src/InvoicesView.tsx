@@ -135,7 +135,7 @@ function InvoiceDetailView({ id, onBack }: { id: string; onBack: () => void }) {
   const allOk = checks.length > 0 && checks.every((c) => c.ok);
 
   const issue = async () => {
-    if (!window.confirm(`Έκδοση ${d.document_type.label} ${formatEuro(d.calc.totals.gross)} προς ${d.customer.name} στο ΔΟΚΙΜΑΣΤΙΚΟ περιβάλλον της ΑΑΔΕ;`)) return;
+    if (!window.confirm(`Οριστική έκδοση: ${d.document_type.label} ${formatEuro(d.calc.totals.gross)} προς ${d.customer.name}. Θα σταλεί στην ΑΑΔΕ. Συνέχεια;`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -167,7 +167,6 @@ function InvoiceDetailView({ id, onBack }: { id: string; onBack: () => void }) {
       <article className="card">
         <header className="card-head">
           <h3>{d.document_type.label}</h3>
-          <span className="env test">ΔΟΚΙΜΑΣΤΙΚΟ</span>
         </header>
         <dl className="fields">
           <Row label="Κατάσταση" value={STATUS[invoice.status]} />
