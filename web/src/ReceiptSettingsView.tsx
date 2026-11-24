@@ -35,7 +35,7 @@ export function ReceiptSettingsView() {
     setMsg(null);
     try {
       await printReceiptHtml(sampleReceiptHtml(width));
-      setMsg("✓ Στάλθηκε δοκιμαστική εκτύπωση στον εκτυπωτή.");
+      setMsg("✓ Στάλθηκε δείγμα εκτύπωσης στον εκτυπωτή.");
     } catch (e) {
       setMsg("Σφάλμα εκτύπωσης: " + (e instanceof Error ? e.message : "άγνωστο"));
     } finally {
@@ -82,7 +82,7 @@ export function ReceiptSettingsView() {
 
         <div className="actions">
           <button className="primary" disabled={busy} onClick={test}>
-            {busy ? "Εκτύπωση…" : "Δοκιμαστική εκτύπωση"}
+            {busy ? "Εκτύπωση…" : "Εκτύπωση δείγματος"}
           </button>
         </div>
         <p className="note">
