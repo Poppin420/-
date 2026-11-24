@@ -12,6 +12,7 @@ files:
   - "!**/*.map"
 win:
   target: nsis
+  artifactName: Synergeio-Setup-${version}.${ext}
 nsis:
   oneClick: false
   perMachine: false

@@ -42,6 +42,7 @@ import {
   ServiceRecordError,
 } from "../vehicles/serviceRecords";
 import { importGarage, type ImportRow } from "../vehicles/garageImport";
+import { importServiceHistory, type ServiceHistoryRow } from "../vehicles/serviceHistoryImport";
 import { ZONE } from "../intent-parsing/greekDate";
 import { verifyPassword } from "../security/password";
 import { exportUserData } from "../privacy/privacy";
@@ -471,6 +472,27 @@ route("POST", "/api/import/garage", true, async (req, ctx, user) => {
     };
   });
   const summary = await importGarage(ctx.db, user!.id, rows);
+  return json(200, { summary });
+});
+
+// Import historical service records, matched to vehicles by plate.
+route("POST", "/api/import/service", true, async (req, ctx, user) => {
+  const body = await readJson(req);
+  if (!Array.isArray(body.rows)) return error(400, "Λείπουν οι γραμμές προς εισαγωγή.");
+  if (body.rows.length > MAX_IMPORT_ROWS) return error(400, `Πολλές γραμμές (όριο ${MAX_IMPORT_ROWS}). Χώρισε το αρχείο.`);
+  const rows = (body.rows as unknown[]).map((r): ServiceHistoryRow => {
+    const o = (r && typeof r === "object" ? r : {}) as Record<string, unknown>;
+    const field = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : o[k] == null ? undefined : String(o[k]));
+    return {
+      plate: field("plate") ?? "",
+      serviced_on: field("serviced_on"),
+      odometer: field("odometer"),
+      work_type: field("work_type"),
+      items: Array.isArray(o.items) ? o.items : field("items"),
+      notes: field("notes"),
+    };
+  });
+  const summary = await importServiceHistory(ctx.db, user!.id, rows);
   return json(200, { summary });
 });
 

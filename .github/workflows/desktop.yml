@@ -9,6 +9,9 @@ on:
     tags:
       - "desktop-v*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -28,3 +31,13 @@ jobs:
           name: synergeio-windows-installer
           path: dist-desktop/*.exe
           if-no-files-found: error
+      # Also publish the installer as a Release, so it has a simple download
+      # button (no digging through Actions artifacts).
+      - name: Publish installer to a Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-latest
+          name: Συνεργείο — εφαρμογή Windows
+          body: Η πιο πρόσφατη έκδοση της εφαρμογής. Κατέβασε το .exe παρακάτω και τρέξ' το.
+          files: dist-desktop/*.exe
+          make_latest: true
