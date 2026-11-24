@@ -86,7 +86,10 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
             Λίστα εργασιών
           </a>
           <a className="button" href="#/import">
-            Εισαγωγή από αρχείο
+            Εισαγωγή πελατών
+          </a>
+          <a className="button" href="#/import-history">
+            Εισαγωγή ιστορικού
           </a>
         </div>
       </div>

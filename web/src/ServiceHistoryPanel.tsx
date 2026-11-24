@@ -6,7 +6,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 type Draft = { serviced_on: string; odometer: string; work_type: string; notes: string; items: string[] };
 const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", items: [] });
 const toDraft = (r: ServiceRecord): Draft => ({
-  serviced_on: r.serviced_on.slice(0, 10),
+  serviced_on: r.serviced_on?.slice(0, 10) ?? today(),
   odometer: r.odometer != null ? String(r.odometer) : "",
   work_type: r.work_type ?? "",
   notes: r.notes ?? "",
@@ -144,7 +144,7 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
               <li key={r.id} className="list-item">
                 <div className="client-row">
                   <div>
-                    <strong>{r.serviced_on.slice(0, 10)}</strong>
+                    <strong>{r.serviced_on ? r.serviced_on.slice(0, 10) : "Χωρίς ημερομηνία"}</strong>
                     {r.odometer != null && <span className="note"> · {r.odometer.toLocaleString("el-GR")} χλμ</span>}
                     {r.work_type && <div>{r.work_type}</div>}
                     {r.items.length > 0 && <div className="note">{r.items.join(" · ")}</div>}

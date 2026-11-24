@@ -4,7 +4,8 @@ import { isUuid } from "../clients/clients";
 export interface ServiceRecord {
   id: string;
   vehicle_id: string;
-  serviced_on: string;
+  /** null for imported historical records with no recorded date. */
+  serviced_on: string | null;
   odometer: number | null;
   work_type: string | null;
   /** Labels of the checklist items done at this visit (free strings, not ids). */
@@ -52,9 +53,10 @@ function clean(data: ServiceRecordInput): { serviced_on: string; odometer: numbe
   return { serviced_on, odometer, work_type, items, notes };
 }
 
-/** The driver may return a date column as a Date; present it as a plain YYYY-MM-DD string. */
+/** The driver may return a date column as a Date; present it as a plain YYYY-MM-DD string (or null). */
 function normalizeRow(row: ServiceRecord): ServiceRecord {
   const d = row.serviced_on as unknown;
+  if (d == null) return { ...row, serviced_on: null };
   return { ...row, serviced_on: d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10) };
 }
 
@@ -68,7 +70,7 @@ async function ownsVehicle(db: Db, userId: string, vehicleId: string): Promise<b
 export async function listServiceRecords(db: Db, userId: string, vehicleId: string): Promise<ServiceRecord[]> {
   if (!isUuid(vehicleId)) return [];
   const rows = await db.query<ServiceRecord>(
-    `select ${COLUMNS} from service_records where user_id = $1 and vehicle_id = $2 order by serviced_on desc, created_at desc`,
+    `select ${COLUMNS} from service_records where user_id = $1 and vehicle_id = $2 order by serviced_on desc nulls last, created_at desc`,
     [userId, vehicleId],
   );
   return rows.map(normalizeRow);
