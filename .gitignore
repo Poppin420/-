@@ -9,3 +9,5 @@ coverage/
 *.log
 
 server.mjs
+electron/desktop-server.mjs
+dist-desktop/

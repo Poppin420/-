@@ -1,5 +1,6 @@
 import type { Db } from "../db/db";
-import { isUuid } from "../clients/clients";
+import { isUuid, sqlFold, sqlPlate } from "../clients/clients";
+import { normalizeGreek } from "../intent-parsing/greekText";
 
 export interface Vehicle {
   id: string;
@@ -121,18 +122,18 @@ export interface ServiceTarget {
 export async function searchServiceTargets(db: Db, userId: string, q: string, limit = 30): Promise<ServiceTarget[]> {
   const term = q.trim();
   if (!term) return [];
-  const name = `%${term}%`;
+  const folded = `%${normalizeGreek(term)}%`;
   // Compare plates ignoring separators, matching the way they are typed/spoken.
   const plate = term.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
   return db.query<ServiceTarget>(
     `select v.id, v.plate, v.make, v.model, v.client_id, c.name as client_name, c.nickname as client_nickname
      from vehicles v join clients c on c.id = v.client_id and c.user_id = v.user_id
      where v.user_id = $1
-       and (c.name ilike $2 or coalesce(c.nickname, '') ilike $2
-            or ($3 <> '' and upper(replace(replace(replace(v.plate, '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%'))
+       and (${sqlFold("c.name")} like $2 or ${sqlFold("coalesce(c.nickname, '')")} like $2
+            or ($3 <> '' and ${sqlPlate("v.plate")} like '%' || $3 || '%'))
      order by c.name, v.plate
      limit $4`,
-    [userId, name, plate, Math.min(Math.max(limit, 1), 50)],
+    [userId, folded, plate, Math.min(Math.max(limit, 1), 50)],
   );
 }
 

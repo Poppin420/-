@@ -79,6 +79,7 @@ export function makeContext(db: Db, over: Partial<AppContext> = {}) {
       google: { clientId: "cid", clientSecret: "csecret", redirectUri: `${BASE}/api/google/callback` },
       scryptLogN: 10,
       secureCookies: true,
+      localUserId: null,
     },
     now: () => REFERENCE_NOW,
     fetch: fakeFetch,

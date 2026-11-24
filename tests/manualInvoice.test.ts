@@ -29,6 +29,14 @@ describe("client search", () => {
     // Empty query returns nothing.
     expect((await call(app, "GET", "/api/clients/search", { cookie })).json.clients).toHaveLength(0);
   });
+
+  it("matches without accents and ignoring case", async () => {
+    const { app, cookie } = await setup();
+    await call(app, "POST", "/api/clients", { cookie, body: { name: "Δημήτρης Παπαδόπουλος" } });
+    // Typed without accents and in lower case.
+    expect((await call(app, "GET", `/api/clients/search?q=${encodeURIComponent("δημητρησ")}`, { cookie })).json.clients).toHaveLength(1);
+    expect((await call(app, "GET", `/api/clients/search?q=${encodeURIComponent("ΠΑΠΑΔΟΠΟΥΛΟΣ")}`, { cookie })).json.clients).toHaveLength(1);
+  });
 });
 
 describe("manual invoice (no voice)", () => {
