@@ -1,0 +1,30 @@
+name: Desktop (Windows installer)
+
+# Builds the Windows .exe installer on a real Windows runner. Run it from the
+# Actions tab ("Run workflow"), or by pushing a tag like desktop-v1. The
+# installer is attached to the run as a downloadable artifact.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "desktop-v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Build front-end and embedded server
+        run: npm run build:desktop
+      - name: Package Windows installer
+        run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synergeio-windows-installer
+          path: dist-desktop/*.exe
+          if-no-files-found: error

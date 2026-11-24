@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "engines": {
     "node": ">=20"
   },
@@ -10,6 +11,10 @@
     "dev": "vite",
     "build": "vite build && npm run build:server",
     "build:server": "esbuild src/server/node.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=server.mjs",
+    "build:desktop-server": "esbuild src/server/desktop.ts --bundle --platform=node --format=esm --target=node20 --packages=external --outfile=electron/desktop-server.mjs",
+    "build:desktop": "vite build && npm run build:desktop-server",
+    "desktop:dev": "npm run build:desktop && electron electron/main.cjs",
+    "desktop:dist": "npm run build:desktop && electron-builder --win --publish never",
     "start": "node server.mjs",
     "preview": "vite preview",
     "test": "vitest run",
@@ -20,6 +25,7 @@
     "db:migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "decimal.js": "^10.6.0",
     "luxon": "3.7.2",
     "pg": "^8.23.0",
@@ -29,13 +35,14 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
     "@types/luxon": "3.7.1",
     "@types/node": "22.18.0",
     "@types/pg": "^8.23.1",
     "@types/react": "19.1.12",
     "@types/react-dom": "19.1.9",
     "@vitejs/plugin-react": "5.0.4",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "esbuild": "^0.25.0",
     "fast-check": "^4.10.2",
     "tsx": "4.20.5",

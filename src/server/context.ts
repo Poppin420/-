@@ -22,6 +22,12 @@ export interface AppConfig {
   scryptLogN: number;
   /** Secure cookies everywhere except plain-http local development. */
   secureCookies: boolean;
+  /**
+   * Desktop build only: when set, every request is the single local user and no
+   * login is required. Only the desktop entry point sets this, and only binds to
+   * 127.0.0.1; the cloud server never does.
+   */
+  localUserId: string | null;
 }
 
 export interface AppContext {
@@ -49,6 +55,7 @@ export function configFromEnv(env: Record<string, string | undefined> = process.
     google,
     scryptLogN: DEFAULT_SCRYPT_LOG_N,
     secureCookies: !(baseUrl ?? "").startsWith("http://"),
+    localUserId: null,
   };
 }
 
