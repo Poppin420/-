@@ -628,7 +628,7 @@ route("GET", "/api/invoices/:id", true, async (_req, ctx, user, { id }) => {
   const invoice = await getInvoice(ctx.db, user!.id, id!);
   if (!invoice) return error(404, "Το παραστατικό δεν βρέθηκε.");
   const profile = await loadProfile(ctx.db, user!.id);
-  const checks = invoice.status === "draft" ? await issueChecks(ctx, user!.id, invoice, profile, { environment: "test" }) : [];
+  const checks = invoice.status === "draft" ? await issueChecks(ctx, user!.id, invoice, profile, { environment: "prod" }) : [];
   return json(200, { invoice, issuer: issuerOf(profile), checks });
 });
 
@@ -645,7 +645,7 @@ route("POST", "/api/invoices/:id/issue", true, async (req, ctx, user, { id }) =>
   if (!invoice) return error(404, "Το παραστατικό δεν βρέθηκε.");
   const profile = await loadProfile(ctx.db, user!.id);
   const checks = await issueChecks(ctx, user!.id, invoice, profile, {
-    environment: "test",
+    environment: "prod",
     issueDate: typeof body.issueDate === "string" ? body.issueDate : undefined,
   });
   const failed = checks.filter((c) => !c.ok);
@@ -655,7 +655,7 @@ route("POST", "/api/invoices/:id/issue", true, async (req, ctx, user, { id }) =>
   if (!paymentType || !/^[1-8]$/.test(paymentType)) return error(400, "Διάλεξε τρόπο πληρωμής.");
   try {
     const result = await issueInvoice(ctx, user!.id, invoice, profile, {
-      environment: "test",
+      environment: "prod",
       issueDate: typeof body.issueDate === "string" ? body.issueDate : undefined,
       paymentMethod: { type: paymentType },
     });
