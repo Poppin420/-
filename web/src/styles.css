@@ -185,6 +185,12 @@ label.check input { width: auto; min-height: 0; }
 .plate { display: inline-block; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px; white-space: nowrap; }
 .vehicles-panel { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); display: grid; gap: 8px; }
 .history-panel { margin-top: 10px; padding-top: 10px; border-top: 1px dotted var(--border); display: grid; gap: 8px; }
+.hist-item { padding: 0; }
+.hist-head { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent; border: none; padding: 12px; color: var(--fg); }
+.hist-head:hover { background: rgba(127,127,127,0.06); }
+.hist-date { font-weight: 700; white-space: nowrap; }
+.hist-sum { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-body { padding: 0 12px 12px; display: grid; gap: 4px; border-top: 1px dashed var(--border); }
 .checklist { display: grid; gap: 10px; }
 .checklist-group { display: grid; gap: 4px; }
 .checkbox { display: flex; align-items: center; gap: 8px; color: var(--fg); font-size: 0.95rem; }

@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type ServiceItem, type ServiceRecord } from "./api";
 
 const today = () => new Date().toISOString().slice(0, 10);
+/** YYYY-MM-DD -> DD/MM/YYYY (Greek), or a friendly label when unknown. */
+const dmy = (iso: string | null) => {
+  if (!iso) return "Χωρίς ημερομηνία";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
+/** One-line summary for a collapsed row. */
+const summarize = (r: ServiceRecord) => r.work_type || (r.items.length > 0 ? r.items.slice(0, 3).join(", ") + (r.items.length > 3 ? "…" : "") : "—");
 
 type Draft = { serviced_on: string; odometer: string; work_type: string; notes: string; items: string[] };
 const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", items: [] });
@@ -20,6 +28,7 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [open, setOpen] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -141,22 +150,45 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
             editing === r.id ? (
               <li key={r.id}>{form}</li>
             ) : (
-              <li key={r.id} className="list-item">
-                <div className="client-row">
-                  <div>
-                    <strong>{r.serviced_on ? r.serviced_on.slice(0, 10) : "Χωρίς ημερομηνία"}</strong>
-                    {r.odometer != null && <span className="note"> · {r.odometer.toLocaleString("el-GR")} χλμ</span>}
-                    {r.work_type && <div>{r.work_type}</div>}
-                    {r.items.length > 0 && <div className="note">{r.items.join(" · ")}</div>}
-                    {r.notes && <div className="note">{r.notes}</div>}
+              <li key={r.id} className="list-item hist-item">
+                <button className="hist-head" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  <span className="hist-date">{dmy(r.serviced_on)}</span>
+                  <span className="hist-sum note">
+                    {r.odometer != null && `${r.odometer.toLocaleString("el-GR")} χλμ · `}
+                    {summarize(r)}
+                  </span>
+                  <span className="target-go">{open === r.id ? "▾" : "›"}</span>
+                </button>
+                {open === r.id && (
+                  <div className="hist-body">
+                    {r.odometer != null && (
+                      <div>
+                        <strong>Χιλιόμετρα:</strong> {r.odometer.toLocaleString("el-GR")}
+                      </div>
+                    )}
+                    {r.work_type && (
+                      <div>
+                        <strong>Εργασία:</strong> {r.work_type}
+                      </div>
+                    )}
+                    {r.items.length > 0 && (
+                      <div>
+                        <strong>Έγιναν:</strong> {r.items.join(" · ")}
+                      </div>
+                    )}
+                    {r.notes && (
+                      <div className="note" style={{ whiteSpace: "pre-wrap" }}>
+                        {r.notes}
+                      </div>
+                    )}
+                    <div className="actions" style={{ marginTop: 8 }}>
+                      <button onClick={() => (setDraft(toDraft(r)), setEditing(r.id))}>Επεξεργασία</button>
+                      <button disabled={busy} onClick={() => remove(r.id)}>
+                        Διαγραφή
+                      </button>
+                    </div>
                   </div>
-                  <div className="actions" style={{ marginTop: 0 }}>
-                    <button onClick={() => (setDraft(toDraft(r)), setEditing(r.id))}>Επεξεργασία</button>
-                    <button disabled={busy} onClick={() => remove(r.id)}>
-                      Διαγραφή
-                    </button>
-                  </div>
-                </div>
+                )}
               </li>
             ),
           )}
