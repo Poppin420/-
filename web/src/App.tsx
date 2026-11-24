@@ -11,12 +11,13 @@ import { ClientsView } from "./ClientsView";
 import { ServiceChecklistView } from "./ServiceChecklistView";
 import { GarageImportView } from "./GarageImportView";
 import { ServiceImportView } from "./ServiceImportView";
+import { ReceiptSettingsView } from "./ReceiptSettingsView";
 
-type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import" | "import-history";
+type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import" | "import-history" | "receipt-settings";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import-history", "import"];
+  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import-history", "import", "receipt-settings"];
   const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "service";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
@@ -70,6 +71,7 @@ export function App() {
       {tab === "checklist" && <ServiceChecklistView />}
       {tab === "import" && <GarageImportView />}
       {tab === "import-history" && <ServiceImportView />}
+      {tab === "receipt-settings" && <ReceiptSettingsView />}
 
       <nav className="tabbar" aria-label="Κύρια πλοήγηση">
         <button className={tab === "service" ? "active" : ""} onClick={() => go("service")}>
@@ -81,7 +83,7 @@ export function App() {
         <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
           🧾<span>Παραστατικά</span>
         </button>
-        <button className={["settings", "profile", "aade", "clients", "checklist", "import", "import-history"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
+        <button className={["settings", "profile", "aade", "clients", "checklist", "import", "import-history", "receipt-settings"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
           ⚙️<span>Ρυθμίσεις</span>
         </button>
       </nav>

@@ -91,6 +91,9 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
           <a className="button" href="#/import-history">
             Εισαγωγή ιστορικού
           </a>
+          <a className="button" href="#/receipt-settings">
+            Εκτύπωση αποδείξεων
+          </a>
         </div>
       </div>
 
