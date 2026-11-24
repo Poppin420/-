@@ -89,6 +89,11 @@ export async function createSession(ctx: AppContext, userId: string): Promise<st
 }
 
 export async function authenticate(ctx: AppContext, req: Request): Promise<SessionUser | null> {
+  // Desktop build: one local user, no login. Only the localhost desktop entry sets this.
+  if (ctx.config.localUserId) {
+    const [local] = await ctx.db.query<SessionUser>("select id, email from users where id = $1", [ctx.config.localUserId]);
+    return local ?? null;
+  }
   const token = readCookie(req, cookieName(ctx));
   if (!token) return null;
   const [row] = await ctx.db.query<SessionUser>(

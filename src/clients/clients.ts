@@ -66,28 +66,38 @@ export async function listClients(db: Db, userId: string): Promise<Client[]> {
   return db.query<Client>(`select ${COLUMNS} from clients where user_id = $1 order by name limit 5000`, [userId]);
 }
 
+// Accent/case-fold a column in SQL the same way normalizeGreek folds the query,
+// so a search typed without accents ("δοκιμη") matches stored text with them
+// ("Δοκιμή"). translate() strips accents (both cases), lower() handles case.
+const G_FROM = "άέήίϊΐόύϋΰώΆΈΉΊΪΌΎΫΏς";
+const G_TO = "αεηιιιουυυωΑΕΗΙΙΟΥΥΩσ";
+export const sqlFold = (col: string) => `lower(translate(${col}, '${G_FROM}', '${G_TO}'))`;
+
+/** Normalized plate matcher: strip separators and uppercase, like normalizePlate. */
+export const sqlPlate = (col: string) => `upper(replace(replace(replace(${col}, '-', ''), ' ', ''), '.', ''))`;
+
 /**
  * Clients matching a search term: by name, nickname, VAT or phone, or by the
- * plate of any car they own. Runs on the server and is capped, so it stays fast
- * however large the customer list grows.
+ * plate of any car they own. Accent- and case-insensitive. Runs on the server
+ * and is capped, so it stays fast however large the customer list grows.
  */
 export async function searchClients(db: Db, userId: string, q: string, limit = 25): Promise<Client[]> {
   const term = q.trim();
   if (!term) return [];
-  const like = `%${term}%`;
+  const folded = `%${normalizeGreek(term)}%`;
   const plate = term.toUpperCase().replace(/[^\p{L}\p{N}]/gu, "");
   return db.query<Client>(
     `select ${COLUMNS} from clients c
      where c.user_id = $1 and (
-       c.name ilike $2 or coalesce(c.nickname, '') ilike $2
-       or coalesce(c.vat_number, '') ilike $2 or coalesce(c.phone, '') ilike $2
-       or ($3 <> '' and upper(replace(replace(replace(coalesce(c.plate, ''), '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%')
+       ${sqlFold("c.name")} like $2 or ${sqlFold("coalesce(c.nickname, '')")} like $2
+       or ${sqlFold("coalesce(c.vat_number, '')")} like $2 or ${sqlFold("coalesce(c.phone, '')")} like $2
+       or ($3 <> '' and ${sqlPlate("coalesce(c.plate, '')")} like '%' || $3 || '%')
        or ($3 <> '' and exists (
          select 1 from vehicles v where v.client_id = c.id and v.user_id = c.user_id
-           and upper(replace(replace(replace(v.plate, '-', ''), ' ', ''), '.', '')) like '%' || $3 || '%'))
+           and ${sqlPlate("v.plate")} like '%' || $3 || '%'))
      )
      order by c.name limit $4`,
-    [userId, like, plate, Math.min(Math.max(limit, 1), 50)],
+    [userId, folded, plate, Math.min(Math.max(limit, 1), 50)],
   );
 }
 

@@ -1,0 +1,20 @@
+appId: gr.synergeio.app
+productName: Synergeio
+# No asar, so the embedded database (WASM) and server run as plain files.
+asar: false
+directories:
+  output: dist-desktop
+  buildResources: electron/resources
+files:
+  - electron/**
+  - web/dist/**
+  - package.json
+  - "!**/*.map"
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Συνεργείο
