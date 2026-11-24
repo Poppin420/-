@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatEuro } from "@core/intent-parsing/resolve";
 import { api, ApiError, type Client, type ServiceItem, type Vehicle } from "./api";
+import { printReceipt } from "./print";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -375,6 +376,12 @@ function ReceiptForm({ client, selected }: { client: Client; selected: string[] 
     try {
       await api.issueInvoice(draftId, payment);
       setIssued("✓ Η απόδειξη εκδόθηκε και στάλθηκε στην ΑΑΔΕ.");
+      // Auto-print on the thermal printer. A print failure must not hide the success.
+      try {
+        await printReceipt(await api.invoice(draftId));
+      } catch (pe) {
+        setIssued(`✓ Η απόδειξη εκδόθηκε και στάλθηκε στην ΑΑΔΕ. (Η εκτύπωση απέτυχε: ${pe instanceof Error ? pe.message : "άγνωστο"})`);
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Σφάλμα έκδοσης.");
     } finally {

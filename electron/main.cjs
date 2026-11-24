@@ -1,7 +1,7 @@
 // Electron main process for the desktop build. It starts the app's own server
 // (embedded PostgreSQL via PGlite) on 127.0.0.1 and opens a window to it, so the
 // whole thing runs locally with no cloud and no separate database.
-const { app, BrowserWindow, shell, dialog, Menu } = require("electron");
+const { app, BrowserWindow, shell, dialog, Menu, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
@@ -62,7 +62,7 @@ function createWindow() {
     width: 1100,
     height: 820,
     title: "Συνεργείο",
-    webPreferences: { contextIsolation: true },
+    webPreferences: { contextIsolation: true, preload: path.join(__dirname, "preload.cjs") },
   });
   win.loadURL(serverUrl);
   // Links that open a new window go to the system browser, not an in-app popup.
@@ -71,6 +71,37 @@ function createWindow() {
     return { action: "deny" };
   });
 }
+
+// List installed printers for the receipt-printer picker.
+ipcMain.handle("list-printers", async (e) => {
+  try {
+    const wc = e.sender;
+    const printers = typeof wc.getPrintersAsync === "function" ? await wc.getPrintersAsync() : wc.getPrinters();
+    return printers.map((p) => ({ name: p.name, displayName: p.displayName || p.name }));
+  } catch {
+    return [];
+  }
+});
+
+// Print a receipt HTML silently to the chosen printer (empty = default).
+ipcMain.handle("print-receipt", async (_e, { html, deviceName }) => {
+  const win = new BrowserWindow({ show: false, webPreferences: { offscreen: false } });
+  try {
+    await win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((resolve, reject) => {
+      win.webContents.print(
+        { silent: true, deviceName: deviceName || "", margins: { marginType: "none" }, printBackground: true },
+        (ok, reason) => (ok ? resolve() : reject(new Error(reason || "Ακυρώθηκε ή απέτυχε η εκτύπωση."))),
+      );
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  } finally {
+    win.close();
+  }
+});
 
 app.whenReady().then(async () => {
   // A minimal menu with the essentials (copy/paste, reload, quit).
