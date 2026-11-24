@@ -168,13 +168,14 @@ export interface InvoiceRow {
   request_xml: string | null;
   mark: string | null;
   uid: string | null;
+  qr_url: string | null;
   aade_error: unknown;
   created_at: string;
   issued_at: string | null;
 }
 
 const COLUMNS =
-  "id, client_id, status, environment, document_type_id, series, number, issue_date, idempotency_key, draft, request_xml, mark, uid, aade_error, created_at, issued_at";
+  "id, client_id, status, environment, document_type_id, series, number, issue_date, idempotency_key, draft, request_xml, mark, uid, qr_url, aade_error, created_at, issued_at";
 
 function toRow(r: Record<string, unknown>): InvoiceRow {
   return {

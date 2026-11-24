@@ -94,9 +94,9 @@ async function persistOutcome(ctx: AppContext, userId: string, invoiceId: string
   if (result.outcome === "issued") {
     await ctx.db.query(
       `update invoices
-         set status = 'issued', mark = $3, uid = $4, response_body = $5, aade_error = null, issued_at = now(), updated_at = now()
+         set status = 'issued', mark = $3, uid = $4, qr_url = $6, response_body = $5, aade_error = null, issued_at = now(), updated_at = now()
        where id = $1 and user_id = $2 and status = 'sending'`,
-      [invoiceId, userId, result.mark, result.uid, result.responseBody],
+      [invoiceId, userId, result.mark, result.uid, result.responseBody, result.qrUrl],
     );
   } else {
     // rejected: the number is freed (status is outside the numbering index), per Φ4.

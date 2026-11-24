@@ -252,6 +252,13 @@ create index service_records_user_vehicle_idx on service_records (user_id, vehic
 alter table service_records alter column serviced_on drop not null;
 `,
   },
+  {
+    id: "009_invoice_qr_url",
+    sql: `
+-- The myDATA QR URL returned when a receipt is issued, for printing on it.
+alter table invoices add column qr_url text;
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {
