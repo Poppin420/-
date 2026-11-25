@@ -4,20 +4,16 @@ import { ServiceEntryView } from "./ServiceEntryView";
 import { VehicleHistoryView } from "./VehicleHistoryView";
 import { AuthScreen } from "./AuthScreen";
 import { SettingsView } from "./SettingsView";
-import { InvoicesView } from "./InvoicesView";
-import { ProfileView } from "./ProfileView";
-import { AadeView } from "./AadeView";
 import { ClientsView } from "./ClientsView";
 import { ServiceChecklistView } from "./ServiceChecklistView";
 import { GarageImportView } from "./GarageImportView";
 import { ServiceImportView } from "./ServiceImportView";
-import { ReceiptSettingsView } from "./ReceiptSettingsView";
 
-type Tab = "service" | "history" | "invoices" | "settings" | "profile" | "aade" | "clients" | "checklist" | "import" | "import-history" | "receipt-settings";
+type Tab = "service" | "history" | "settings" | "clients" | "checklist" | "import" | "import-history";
 
 function tabFromHash(): { tab: Tab; notice: string | null } {
   const hash = window.location.hash;
-  const routes: Tab[] = ["history", "invoices", "settings", "profile", "aade", "clients", "checklist", "import-history", "import", "receipt-settings"];
+  const routes: Tab[] = ["history", "settings", "clients", "checklist", "import-history", "import"];
   const tab: Tab = routes.find((r) => hash.startsWith(`#/${r}`)) ?? "service";
   const google = new URLSearchParams(hash.split("?")[1] ?? "").get("google");
   const notice =
@@ -60,17 +56,13 @@ export function App() {
 
       {tab === "service" && <ServiceEntryView />}
       {tab === "history" && <VehicleHistoryView />}
-      {tab === "invoices" && <InvoicesView />}
       {tab === "settings" && (
         <SettingsView me={me} notice={notice} onChanged={loadMe} onLoggedOut={() => setMe(null)} />
       )}
-      {tab === "profile" && <ProfileView />}
-      {tab === "aade" && <AadeView />}
       {tab === "clients" && <ClientsView />}
       {tab === "checklist" && <ServiceChecklistView />}
       {tab === "import" && <GarageImportView />}
       {tab === "import-history" && <ServiceImportView />}
-      {tab === "receipt-settings" && <ReceiptSettingsView />}
 
       <nav className="tabbar" aria-label="Κύρια πλοήγηση">
         <button className={tab === "service" ? "active" : ""} onClick={() => go("service")}>
@@ -79,10 +71,7 @@ export function App() {
         <button className={tab === "history" ? "active" : ""} onClick={() => go("history")}>
           🚗<span>Ιστορικό</span>
         </button>
-        <button className={tab === "invoices" ? "active" : ""} onClick={() => go("invoices")}>
-          🧾<span>Παραστατικά</span>
-        </button>
-        <button className={["settings", "profile", "aade", "clients", "checklist", "import", "import-history", "receipt-settings"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
+        <button className={["settings", "clients", "checklist", "import", "import-history"].includes(tab) ? "active" : ""} onClick={() => go("settings")}>
           ⚙️<span>Ρυθμίσεις</span>
         </button>
       </nav>
