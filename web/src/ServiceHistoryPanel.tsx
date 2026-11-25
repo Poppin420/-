@@ -11,15 +11,17 @@ const dmy = (iso: string | null) => {
 /** One-line summary for a collapsed row. */
 const summarize = (r: ServiceRecord) => r.work_type || (r.items.length > 0 ? r.items.slice(0, 3).join(", ") + (r.items.length > 3 ? "…" : "") : "—");
 
-type Draft = { serviced_on: string; odometer: string; work_type: string; notes: string; items: string[] };
-const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", items: [] });
+type Draft = { serviced_on: string; odometer: string; work_type: string; notes: string; amount: string; items: string[] };
+const emptyDraft = (): Draft => ({ serviced_on: today(), odometer: "", work_type: "", notes: "", amount: "", items: [] });
 const toDraft = (r: ServiceRecord): Draft => ({
   serviced_on: r.serviced_on?.slice(0, 10) ?? today(),
   odometer: r.odometer != null ? String(r.odometer) : "",
   work_type: r.work_type ?? "",
   notes: r.notes ?? "",
+  amount: r.amount ?? "",
   items: [...r.items],
 });
+const euro = (s: string) => Number(s).toLocaleString("el-GR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
 export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
   const [records, setRecords] = useState<ServiceRecord[] | null>(null);
@@ -51,7 +53,7 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
     setBusy(true);
     setError(null);
     try {
-      const payload = { serviced_on: draft.serviced_on, odometer: draft.odometer, work_type: draft.work_type, notes: draft.notes, items: draft.items };
+      const payload = { serviced_on: draft.serviced_on, odometer: draft.odometer, work_type: draft.work_type, notes: draft.notes, amount: draft.amount, items: draft.items };
       if (editing === "new") await api.createService(vehicleId, payload);
       else if (editing) await api.updateService(editing, payload);
       setEditing(null);
@@ -96,6 +98,10 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
       <label>
         Είδος εργασίας
         <input value={draft.work_type} placeholder="π.χ. Μεγάλο service" onChange={(e) => setDraft({ ...draft, work_type: e.target.value })} />
+      </label>
+      <label>
+        Χρέωση (€)
+        <input inputMode="decimal" value={draft.amount} placeholder="π.χ. 65" onChange={(e) => setDraft({ ...draft, amount: e.target.value })} />
       </label>
       {checklist.length > 0 && (
         <div className="checklist">
@@ -145,6 +151,15 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
       ) : records.length === 0 ? (
         <p className="note">Δεν υπάρχει ιστορικό ακόμη για αυτό το όχημα.</p>
       ) : (
+        <>
+        {(() => {
+          const total = records.reduce((s, r) => s + (r.amount ? Number(r.amount) : 0), 0);
+          return total > 0 ? (
+            <p className="hist-total">
+              Σύνολο χρεώσεων: <strong>{euro(String(total))}</strong> ({records.length} επισκέψεις)
+            </p>
+          ) : null;
+        })()}
         <ul className="client-list">
           {records.map((r) =>
             editing === r.id ? (
@@ -157,6 +172,7 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
                     {r.odometer != null && `${r.odometer.toLocaleString("el-GR")} χλμ · `}
                     {summarize(r)}
                   </span>
+                  {r.amount != null && <span className="hist-amount">{euro(r.amount)}</span>}
                   <span className="target-go">{open === r.id ? "▾" : "›"}</span>
                 </button>
                 {open === r.id && (
@@ -169,6 +185,11 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
                     {r.work_type && (
                       <div>
                         <strong>Εργασία:</strong> {r.work_type}
+                      </div>
+                    )}
+                    {r.amount != null && (
+                      <div>
+                        <strong>Χρέωση:</strong> {euro(r.amount)}
                       </div>
                     )}
                     {r.items.length > 0 && (
@@ -193,6 +214,7 @@ export function ServiceHistoryPanel({ vehicleId }: { vehicleId: string }) {
             ),
           )}
         </ul>
+        </>
       )}
     </div>
   );

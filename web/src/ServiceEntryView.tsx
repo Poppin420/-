@@ -187,6 +187,7 @@ function ServiceLog({
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [newPlate, setNewPlate] = useState("");
   const [km, setKm] = useState("");
+  const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,10 +237,11 @@ function ServiceLog({
     setBusy(true);
     setError(null);
     try {
-      await api.createService(vehicleId, { serviced_on: today(), odometer: km, items: selected, notes });
+      await api.createService(vehicleId, { serviced_on: today(), odometer: km, items: selected, notes, amount });
       const plate = vehicles?.find((v) => v.id === vehicleId)?.plate ?? "";
       setFlash(`✓ Καταχωρήθηκε στο ιστορικό ${plate}`);
       setNotes("");
+      setAmount("");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Σφάλμα αποθήκευσης.");
     } finally {
@@ -304,6 +306,10 @@ function ServiceLog({
       <label className="svc-km">
         Χιλιόμετρα (προαιρετικό)
         <input inputMode="numeric" value={km} placeholder="π.χ. 135000" onChange={(e) => setKm(e.target.value)} />
+      </label>
+      <label className="svc-km">
+        Χρέωση (€)
+        <input inputMode="decimal" value={amount} placeholder="π.χ. 65" onChange={(e) => setAmount(e.target.value)} />
       </label>
       <label className="svc-km">
         Σημειώσεις (π.χ. τι ανταλλακτικό έβαλες)

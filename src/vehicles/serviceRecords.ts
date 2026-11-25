@@ -11,9 +11,11 @@ export interface ServiceRecord {
   /** Labels of the checklist items done at this visit (free strings, not ids). */
   items: string[];
   notes: string | null;
+  /** What the customer was charged, as a decimal string (e.g. "65.00"); not a tax amount. */
+  amount: string | null;
 }
 
-const COLUMNS = "id, vehicle_id, serviced_on, odometer, work_type, items, notes";
+const COLUMNS = "id, vehicle_id, serviced_on, odometer, work_type, items, notes, amount";
 
 export class ServiceRecordError extends Error {
   constructor(message: string) {
@@ -28,10 +30,11 @@ export interface ServiceRecordInput {
   work_type?: string | null;
   items?: unknown;
   notes?: string | null;
+  amount?: number | string | null;
 }
 
 /** Validates and normalizes a service record's fields; throws on bad input. */
-function clean(data: ServiceRecordInput): { serviced_on: string; odometer: number | null; work_type: string | null; items: string[]; notes: string | null } {
+function clean(data: ServiceRecordInput): { serviced_on: string; odometer: number | null; work_type: string | null; items: string[]; notes: string | null; amount: string | null } {
   // The driver may hand dates back as Date objects; reduce to a plain YYYY-MM-DD.
   const raw = data.serviced_on as unknown;
   const serviced_on = (raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw ?? "")).trim();
@@ -50,14 +53,20 @@ function clean(data: ServiceRecordInput): { serviced_on: string; odometer: numbe
     : [];
   const notes = data.notes?.trim() || null;
   if (notes && notes.length > 4000) throw new ServiceRecordError("Οι σημειώσεις είναι πολύ μεγάλες.");
-  return { serviced_on, odometer, work_type, items, notes };
+  let amount: string | null = null;
+  if (data.amount != null && String(data.amount).trim() !== "") {
+    amount = String(data.amount).replace(/[€\s]/g, "").replace(",", ".");
+    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) < 0 || Number(amount) > 100_000_000) throw new ServiceRecordError("Το ποσό χρέωσης δεν είναι έγκυρο.");
+  }
+  return { serviced_on, odometer, work_type, items, notes, amount };
 }
 
 /** The driver may return a date column as a Date; present it as a plain YYYY-MM-DD string (or null). */
 function normalizeRow(row: ServiceRecord): ServiceRecord {
+  const amount = row.amount == null ? null : String(row.amount);
   const d = row.serviced_on as unknown;
-  if (d == null) return { ...row, serviced_on: null };
-  return { ...row, serviced_on: d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10) };
+  if (d == null) return { ...row, serviced_on: null, amount };
+  return { ...row, serviced_on: d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10), amount };
 }
 
 async function ownsVehicle(db: Db, userId: string, vehicleId: string): Promise<boolean> {
@@ -80,9 +89,9 @@ export async function createServiceRecord(db: Db, userId: string, vehicleId: str
   if (!(await ownsVehicle(db, userId, vehicleId))) throw new ServiceRecordError("Το όχημα δεν βρέθηκε.");
   const v = clean(data);
   const [row] = await db.query<ServiceRecord>(
-    `insert into service_records (user_id, vehicle_id, serviced_on, odometer, work_type, items, notes)
-     values ($1, $2, $3, $4, $5, $6, $7) returning ${COLUMNS}`,
-    [userId, vehicleId, v.serviced_on, v.odometer, v.work_type, JSON.stringify(v.items), v.notes],
+    `insert into service_records (user_id, vehicle_id, serviced_on, odometer, work_type, items, notes, amount)
+     values ($1, $2, $3, $4, $5, $6, $7, $8) returning ${COLUMNS}`,
+    [userId, vehicleId, v.serviced_on, v.odometer, v.work_type, JSON.stringify(v.items), v.notes, v.amount],
   );
   return normalizeRow(row!);
 }
@@ -97,11 +106,12 @@ export async function updateServiceRecord(db: Db, userId: string, id: string, da
     work_type: data.work_type !== undefined ? data.work_type : current.work_type,
     items: data.items !== undefined ? data.items : current.items,
     notes: data.notes !== undefined ? data.notes : current.notes,
+    amount: data.amount !== undefined ? data.amount : current.amount,
   });
   const [row] = await db.query<ServiceRecord>(
-    `update service_records set serviced_on = $3, odometer = $4, work_type = $5, items = $6, notes = $7
+    `update service_records set serviced_on = $3, odometer = $4, work_type = $5, items = $6, notes = $7, amount = $8
      where user_id = $1 and id = $2 returning ${COLUMNS}`,
-    [userId, id, v.serviced_on, v.odometer, v.work_type, JSON.stringify(v.items), v.notes],
+    [userId, id, v.serviced_on, v.odometer, v.work_type, JSON.stringify(v.items), v.notes, v.amount],
   );
   return row ? normalizeRow(row) : null;
 }

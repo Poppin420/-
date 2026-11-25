@@ -415,6 +415,7 @@ route("POST", "/api/vehicles/:id/services", true, async (req, ctx, user, { id })
       work_type: optField(body.work_type),
       items: body.items,
       notes: optField(body.notes),
+      amount: numField(body.amount),
     });
     return json(201, { record });
   } catch (e) {
@@ -432,6 +433,7 @@ route("PUT", "/api/services/:id", true, async (req, ctx, user, { id }) => {
       work_type: optField(body.work_type),
       items: body.items !== undefined ? body.items : undefined,
       notes: optField(body.notes),
+      amount: numField(body.amount),
     });
     if (!record) return error(404, "Η εγγραφή δεν βρέθηκε.");
     return json(200, { record });
