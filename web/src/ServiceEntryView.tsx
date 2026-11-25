@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatEuro } from "@core/intent-parsing/resolve";
 import { api, ApiError, type Client, type ServiceItem, type Vehicle } from "./api";
-import { printReceipt } from "./print";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** The workshop's home: find or add a customer, then log the work and/or issue a receipt. */
+/** The workshop's home: find or add a customer, then log the work on their vehicle. */
 export function ServiceEntryView() {
   const [picked, setPicked] = useState<Client | null>(null);
   if (picked) return <ClientHub client={picked} onBack={() => setPicked(null)} />;
@@ -117,12 +115,11 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
   );
 }
 
-// --- One customer: the service buttons flow straight into the receipt ----------
+// --- One customer: log what was done ------------------------------------------
 
 function ClientHub({ client, onBack }: { client: Client; onBack: () => void }) {
   const [checklist, setChecklist] = useState<ServiceItem[] | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [mode, setMode] = useState<"service" | "receipt">("service");
 
   useEffect(() => {
     void (async () => {
@@ -150,20 +147,8 @@ function ClientHub({ client, onBack }: { client: Client; onBack: () => void }) {
             {client.nickname && <span> «{client.nickname}»</span>}
           </p>
         )}
-        <div className="seg">
-          <button className={mode === "service" ? "active" : ""} onClick={() => setMode("service")}>
-            🔧 Τι έγινε
-          </button>
-          <button className={mode === "receipt" ? "active" : ""} onClick={() => setMode("receipt")}>
-            🧾 Απόδειξη {selected.length > 0 ? `(${selected.length})` : ""}
-          </button>
-        </div>
       </div>
-      {mode === "service" ? (
-        <ServiceLog client={client} checklist={checklist} selected={selected} onToggle={toggle} onGoReceipt={() => setMode("receipt")} />
-      ) : (
-        <ReceiptForm client={client} selected={selected} />
-      )}
+      <ServiceLog client={client} checklist={checklist} selected={selected} onToggle={toggle} />
     </section>
   );
 }
@@ -175,13 +160,11 @@ function ServiceLog({
   checklist,
   selected,
   onToggle,
-  onGoReceipt,
 }: {
   client: Client;
   checklist: ServiceItem[] | null;
   selected: string[];
   onToggle: (label: string) => void;
-  onGoReceipt: () => void;
 }) {
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
@@ -317,184 +300,13 @@ function ServiceLog({
       </label>
 
       <div className="actions">
-        <button className="primary" disabled={busy || selected.length === 0} onClick={onGoReceipt}>
-          Απόδειξη → ({selected.length})
-        </button>
-        <button disabled={busy || !vehicleId || selected.length === 0} onClick={saveHistory} title={!vehicleId ? "Διάλεξε ή πρόσθεσε αμάξι" : ""}>
+        <button className="primary" disabled={busy || !vehicleId || selected.length === 0} onClick={saveHistory} title={!vehicleId ? "Διάλεξε ή πρόσθεσε αμάξι" : ""}>
           Αποθήκευση στο ιστορικό
         </button>
       </div>
       {!vehicleId && vehicles !== null && selected.length > 0 && (
-        <p className="note">Για να κρατηθεί στο ιστορικό του αμαξιού, διάλεξε ή πρόσθεσε πινακίδα πάνω. (Για απόδειξη δεν χρειάζεται.)</p>
+        <p className="note">Για να κρατηθεί στο ιστορικό του αμαξιού, διάλεξε ή πρόσθεσε πινακίδα πάνω.</p>
       )}
-    </div>
-  );
-}
-
-// --- "Τι χρεώνεις": prefilled from the chosen services -------------------------
-
-const PAYMENT_METHODS: Array<{ code: string; label: string }> = [
-  { code: "3", label: "Μετρητά" },
-  { code: "7", label: "POS / κάρτα" },
-  { code: "1", label: "Επαγ. λογαριασμός ημεδαπής" },
-  { code: "5", label: "Επί πιστώσει" },
-  { code: "8", label: "IRIS" },
-];
-
-function ReceiptForm({ client, selected }: { client: Client; selected: string[] }) {
-  const [description, setDescription] = useState(selected.join(", "));
-  const [amount, setAmount] = useState("");
-  const [withVat, setWithVat] = useState(true);
-  const [docChoice, setDocChoice] = useState<string | undefined>();
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [gross, setGross] = useState<string | null>(null);
-  const [blockers, setBlockers] = useState<string[]>([]);
-  const [docOptions, setDocOptions] = useState<Array<{ id: string; label: string }>>([]);
-  const [payment, setPayment] = useState("3");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [issued, setIssued] = useState<string | null>(null);
-
-  const createDraft = async () => {
-    setBusy(true);
-    setError(null);
-    setBlockers([]);
-    try {
-      const res = await api.createInvoice({
-        client_id: client.id,
-        description,
-        amount,
-        price_basis: withVat ? "with_vat" : "without_vat",
-        documentTypeId: docChoice,
-      });
-      if (res.invoice) {
-        setDraftId(res.invoice.id);
-        setGross(res.invoice.draft.calc.totals.gross);
-      } else {
-        setDocOptions(res.plan.documentTypeChoice.options);
-        setBlockers(res.blockers.length ? res.blockers : ["Συμπλήρωσε το προφίλ επιχείρησης από τις Ρυθμίσεις."]);
-      }
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Σφάλμα.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const issue = async () => {
-    if (!draftId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await api.issueInvoice(draftId, payment);
-      setIssued("✓ Η απόδειξη εκδόθηκε και στάλθηκε στην ΑΑΔΕ.");
-      // Auto-print on the thermal printer. A print failure must not hide the success.
-      try {
-        await printReceipt(await api.invoice(draftId));
-      } catch (pe) {
-        setIssued(`✓ Η απόδειξη εκδόθηκε και στάλθηκε στην ΑΑΔΕ. (Η εκτύπωση απέτυχε: ${pe instanceof Error ? pe.message : "άγνωστο"})`);
-      }
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Σφάλμα έκδοσης.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (issued) {
-    return (
-      <div className="panel">
-        <p className="note ok-note">{issued}</p>
-        <a className="button" href="#/invoices">
-          Δες τα παραστατικά
-        </a>
-      </div>
-    );
-  }
-
-  if (draftId) {
-    return (
-      <div className="panel">
-        <p>
-          Σύνολο <strong>{gross ? formatEuro(gross) : ""}</strong> — «{description}».
-        </p>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <label>
-          Τρόπος πληρωμής
-          <select value={payment} onChange={(e) => setPayment(e.target.value)}>
-            {PAYMENT_METHODS.map((p) => (
-              <option key={p.code} value={p.code}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="actions">
-          <button className="primary" disabled={busy} onClick={issue}>
-            {busy ? "Έκδοση…" : "Έκδοση απόδειξης"}
-          </button>
-          <a className="button" href="#/invoices">
-            Αργότερα (μένει προσχέδιο)
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="panel">
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {blockers.length > 0 && (
-        <ul className="blockers">
-          {blockers.map((b) => (
-            <li key={b}>⛔ {b}</li>
-          ))}
-        </ul>
-      )}
-      <div className="form-grid">
-        <label>
-          Τι χρεώνεις
-          <input value={description} placeholder="π.χ. Service & λάδια" onChange={(e) => setDescription(e.target.value)} />
-        </label>
-        <label>
-          Ποσό (€)
-          <input className="svc-amount" inputMode="decimal" value={amount} placeholder="π.χ. 80" onChange={(e) => setAmount(e.target.value)} />
-        </label>
-        <div className="seg">
-          <button className={withVat ? "active" : ""} onClick={() => setWithVat(true)}>
-            Με ΦΠΑ
-          </button>
-          <button className={!withVat ? "active" : ""} onClick={() => setWithVat(false)}>
-            Χωρίς ΦΠΑ
-          </button>
-        </div>
-        {docOptions.length > 1 && (
-          <label>
-            Τύπος παραστατικού
-            <select value={docChoice ?? ""} onChange={(e) => setDocChoice(e.target.value || undefined)}>
-              <option value="">— διάλεξε —</option>
-              {docOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <div className="actions">
-          <button className="primary" disabled={busy || !description.trim() || !amount.trim()} onClick={createDraft}>
-            {busy ? "…" : "Συνέχεια"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

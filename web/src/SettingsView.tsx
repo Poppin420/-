@@ -60,22 +60,6 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
       </div>
 
       <div className="panel">
-        <h2>Τιμολόγηση</h2>
-        <p className="note">Φορολογικά στοιχεία, κατηγορίες ΦΠΑ, σειρές και κατάλογος υπηρεσιών, καθώς και τα δικά σου στοιχεία σύνδεσης με την ΑΑΔΕ.</p>
-        <div className="actions">
-          <a className="button" href="#/profile">
-            Προφίλ επιχείρησης
-          </a>
-          <a className="button" href="#/aade">
-            Σύνδεση με ΑΑΔΕ
-          </a>
-          <a className="button" href="#/clients">
-            Πελάτες
-          </a>
-        </div>
-      </div>
-
-      <div className="panel">
         <h2>Συνεργείο</h2>
         <p className="note">Πελάτες και τα οχήματά τους (πινακίδα, μάρκα, ιστορικό service) και η λίστα εργασιών που εμφανίζεται σε κάθε service.</p>
         <div className="actions">
@@ -90,9 +74,6 @@ export function SettingsView({ me, notice, onChanged, onLoggedOut }: {
           </a>
           <a className="button" href="#/import-history">
             Εισαγωγή ιστορικού
-          </a>
-          <a className="button" href="#/receipt-settings">
-            Εκτύπωση αποδείξεων
           </a>
         </div>
       </div>
