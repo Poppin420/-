@@ -259,6 +259,13 @@ alter table service_records alter column serviced_on drop not null;
 alter table invoices add column qr_url text;
 `,
   },
+  {
+    id: "010_service_amount",
+    sql: `
+-- What the customer was charged for this visit (local record, not a tax amount).
+alter table service_records add column amount numeric check (amount is null or (amount >= 0 and amount <= 100000000));
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {
