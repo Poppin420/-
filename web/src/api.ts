@@ -13,7 +13,10 @@ export type { Appointment, Client, Vehicle, ServiceTarget, ServiceItem, ServiceR
 export type VehicleFields = Partial<Omit<Vehicle, "id" | "client_id" | "year">> & { year?: number | string | null };
 
 /** Writable service-record fields as sent from the UI; odometer may be a string. */
-export type ServiceFields = Partial<Omit<ServiceRecord, "id" | "vehicle_id" | "odometer">> & { odometer?: number | string | null };
+export type ServiceFields = Partial<Omit<ServiceRecord, "id" | "vehicle_id" | "odometer" | "amount">> & {
+  odometer?: number | string | null;
+  amount?: number | string | null;
+};
 
 export interface ManualInvoiceInput {
   client_id: string;

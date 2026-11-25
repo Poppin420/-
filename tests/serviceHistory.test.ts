@@ -75,6 +75,20 @@ describe("service history", () => {
     expect(records[0].odometer).toBe(135000);
   });
 
+  it("records the charge amount and returns it as a decimal string", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    const vid = await vehicleOf(app, cookie);
+    const res = await call(app, "POST", `/api/vehicles/${vid}/services`, {
+      cookie,
+      body: { serviced_on: "2025-01-10", work_type: "Service", amount: "65,00 €" },
+    });
+    expect(res.status).toBe(201);
+    expect(Number(res.json.record.amount)).toBe(65);
+    const got = (await call(app, "GET", `/api/vehicles/${vid}/services`, { cookie })).json.records[0];
+    expect(Number(got.amount)).toBe(65);
+  });
+
   it("rejects a bad date and bad odometer", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);
