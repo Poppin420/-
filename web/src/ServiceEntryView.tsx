@@ -1,13 +1,24 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, type Client, type ServiceTarget } from "./api";
+import { api, ApiError, type ServiceTarget, type Vehicle } from "./api";
 import { ServiceHistoryPanel } from "./ServiceHistoryPanel";
 
 /** The workshop's home: find a car by plate (or owner), then log work and see its history. */
 export function ServiceEntryView() {
   const [picked, setPicked] = useState<ServiceTarget | null>(null);
-  if (picked) return <VehicleWork target={picked} onBack={() => setPicked(null)} />;
+  if (picked) return <VehicleWork target={picked} onBack={() => setPicked(null)} onOpen={setPicked} />;
   return <CarSearch onPick={setPicked} />;
 }
+
+/** A newly created/edited vehicle, as a ServiceTarget under the same owner. */
+const vehicleToTarget = (v: Vehicle, owner: Pick<ServiceTarget, "client_id" | "client_name" | "client_nickname">): ServiceTarget => ({
+  id: v.id,
+  plate: v.plate,
+  make: v.make,
+  model: v.model,
+  client_id: owner.client_id,
+  client_name: owner.client_name,
+  client_nickname: owner.client_nickname,
+});
 
 // --- Search a car by plate or owner, or add a new customer + car ---------------
 
@@ -101,7 +112,8 @@ function CarSearch({ onPick }: { onPick: (t: ServiceTarget) => void }) {
 
 // --- One car: its history and a quick "new service" --------------------------
 
-function VehicleWork({ target, onBack }: { target: ServiceTarget; onBack: () => void }) {
+function VehicleWork({ target, onBack, onOpen }: { target: ServiceTarget; onBack: () => void; onOpen: (t: ServiceTarget) => void }) {
+  const [addingCar, setAddingCar] = useState(false);
   return (
     <section className="service-entry">
       <div className="panel">
@@ -112,9 +124,95 @@ function VehicleWork({ target, onBack }: { target: ServiceTarget; onBack: () => 
           <span className="plate">{target.plate}</span> {target.client_name}
         </h2>
         {(target.make || target.model) && <p className="note">{[target.make, target.model].filter(Boolean).join(" ")}</p>}
+        {addingCar ? (
+          <VehicleForm
+            clientId={target.client_id}
+            onCancel={() => setAddingCar(false)}
+            onCreated={(v) => {
+              setAddingCar(false);
+              onOpen(vehicleToTarget(v, target));
+            }}
+          />
+        ) : (
+          <div className="actions">
+            <button onClick={() => setAddingCar(true)}>➕ Άλλο αμάξι αυτού του πελάτη</button>
+          </div>
+        )}
         <ServiceHistoryPanel vehicleId={target.id} />
       </div>
     </section>
+  );
+}
+
+// --- A full "add a car" form (all fields, not just the plate) ------------------
+
+function VehicleForm({ clientId, onCancel, onCreated }: { clientId: string; onCancel: () => void; onCreated: (v: Vehicle) => void }) {
+  const [plate, setPlate] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [engine, setEngine] = useState("");
+  const [vin, setVin] = useState("");
+  const [engineNo, setEngineNo] = useState("");
+  const [year, setYear] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!plate.trim()) {
+      setError("Γράψε πινακίδα.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { vehicle } = await api.createVehicle(clientId, {
+        plate: plate.trim(),
+        make: make.trim() || undefined,
+        model: model.trim() || undefined,
+        engine: engine.trim() || undefined,
+        vin: vin.trim() || undefined,
+        engine_no: engineNo.trim() || undefined,
+        year: year.trim() || undefined,
+      });
+      onCreated(vehicle);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Σφάλμα δημιουργίας.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const f = (label: string, value: string, set: (v: string) => void, props: Record<string, unknown> = {}) => (
+    <label>
+      {label}
+      <input value={value} onChange={(e) => set(e.target.value)} {...props} />
+    </label>
+  );
+
+  return (
+    <div className="form-grid">
+      <h3>Νέο αμάξι</h3>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {f("Πινακίδα", plate, setPlate, { autoFocus: true, autoCapitalize: "characters", placeholder: "π.χ. ΑΒΓ-1234" })}
+      {f("Μάρκα", make, setMake, { placeholder: "Toyota" })}
+      {f("Μοντέλο", model, setModel, { placeholder: "Yaris" })}
+      {f("Κυβικά", engine, setEngine, { placeholder: "1400" })}
+      {f("Έτος", year, setYear, { inputMode: "numeric", placeholder: "2015" })}
+      {f("Αρ. πλαισίου (VIN)", vin, setVin)}
+      {f("Αρ. κινητήρα", engineNo, setEngineNo)}
+      <div className="actions">
+        <button className="primary" disabled={busy || !plate.trim()} onClick={save}>
+          Αποθήκευση & άνοιγμα
+        </button>
+        <button disabled={busy} onClick={onCancel}>
+          Άκυρο
+        </button>
+      </div>
+    </div>
   );
 }
 
