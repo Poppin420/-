@@ -191,6 +191,7 @@ export function GarageImportView() {
           <ul>
             <li>Νέοι πελάτες: {summary.clientsCreated}</li>
             <li>Νέα οχήματα: {summary.vehiclesCreated}</li>
+            <li>Οχήματα που ενημερώθηκαν (συμπληρώθηκαν κενά): {summary.vehiclesUpdated}</li>
             <li>Οχήματα που υπήρχαν ήδη: {summary.vehiclesSkipped}</li>
             <li>Γραμμές που παραλείφθηκαν: {summary.rowsSkipped}</li>
           </ul>

@@ -43,6 +43,22 @@ describe("garage import", () => {
     expect(second.json.summary.vehiclesSkipped).toBe(1);
   });
 
+  it("backfills empty fields (e.g. VIN) on an existing vehicle without overwriting filled ones", async () => {
+    const { app } = makeContext(db);
+    const cookie = await signedIn(app);
+    await importRows(app, cookie, [{ name: "Νίκος", plate: "ΒΦ-3333", make: "Seat" }]);
+    const second = await importRows(app, cookie, [
+      { name: "Νίκος", plate: "ΒΦ-3333", make: "Audi", vin: "WAUZZZ4AZNN105155" },
+    ]);
+    expect(second.json.summary.vehiclesUpdated).toBe(1);
+    expect(second.json.summary.vehiclesCreated).toBe(0);
+    const clients = (await call(app, "GET", "/api/clients", { cookie })).json.clients;
+    const nikos = clients.find((c: { name: string }) => c.name === "Νίκος");
+    const [car] = (await call(app, "GET", `/api/clients/${nikos.id}/vehicles`, { cookie })).json.vehicles;
+    expect(car.vin).toBe("WAUZZZ4AZNN105155"); // blank VIN filled in
+    expect(car.make).toBe("Seat"); // existing value kept, not overwritten by "Audi"
+  });
+
   it("attaches a car with no owner name to a plate-named placeholder client", async () => {
     const { app } = makeContext(db);
     const cookie = await signedIn(app);
