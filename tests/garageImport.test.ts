@@ -48,7 +48,7 @@ describe("garage import", () => {
     const cookie = await signedIn(app);
     await importRows(app, cookie, [{ name: "Νίκος", plate: "ΒΦ-3333", make: "Seat" }]);
     const second = await importRows(app, cookie, [
-      { name: "Νίκος", plate: "ΒΦ-3333", make: "Audi", vin: "WAUZZZ4AZNN105155" },
+      { name: "Νίκος", plate: "ΒΦ-3333", make: "Audi", vin: "WAUZZZ4AZNN105155", engine_no: "G4EA" },
     ]);
     expect(second.json.summary.vehiclesUpdated).toBe(1);
     expect(second.json.summary.vehiclesCreated).toBe(0);
@@ -56,6 +56,7 @@ describe("garage import", () => {
     const nikos = clients.find((c: { name: string }) => c.name === "Νίκος");
     const [car] = (await call(app, "GET", `/api/clients/${nikos.id}/vehicles`, { cookie })).json.vehicles;
     expect(car.vin).toBe("WAUZZZ4AZNN105155"); // blank VIN filled in
+    expect(car.engine_no).toBe("G4EA"); // blank engine number filled in
     expect(car.make).toBe("Seat"); // existing value kept, not overwritten by "Audi"
   });
 
