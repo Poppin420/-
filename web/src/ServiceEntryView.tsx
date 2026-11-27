@@ -16,7 +16,7 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Client[]>([]);
   const [searching, setSearching] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,18 +44,6 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
     };
   }, [query]);
 
-  const addNew = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { client } = await api.createClient({ name: query.trim() });
-      onPick(client);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Σφάλμα δημιουργίας.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <section className="service-entry">
@@ -78,7 +66,9 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
       </div>
 
       <div className="panel">
-        {query.trim().length === 0 ? (
+        {adding ? (
+          <NewCustomerForm initialName={query.trim()} onCancel={() => setAdding(false)} onCreated={onPick} />
+        ) : query.trim().length === 0 ? (
           <p className="note">Ξεκίνα να γράφεις για να βρεις πελάτη.</p>
         ) : (
           <>
@@ -104,7 +94,7 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
               </ul>
             )}
             {!searching && (
-              <button className="primary add-new" disabled={busy} onClick={addNew}>
+              <button className="primary add-new" onClick={() => setAdding(true)}>
                 ➕ Νέος πελάτης «{query.trim()}»
               </button>
             )}
@@ -112,6 +102,82 @@ function CustomerSearch({ onPick }: { onPick: (c: Client) => void }) {
         )}
       </div>
     </section>
+  );
+}
+
+// --- New customer together with their car, in one step ------------------------
+
+function NewCustomerForm({ initialName, onCancel, onCreated }: { initialName: string; onCancel: () => void; onCreated: (c: Client) => void }) {
+  const [name, setName] = useState(initialName);
+  const [phone, setPhone] = useState("");
+  const [plate, setPlate] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [engine, setEngine] = useState("");
+  const [vin, setVin] = useState("");
+  const [engineNo, setEngineNo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!name.trim()) {
+      setError("Γράψε όνομα πελάτη.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const { client } = await api.createClient({ name: name.trim(), phone: phone.trim() || undefined });
+      if (plate.trim()) {
+        await api.createVehicle(client.id, {
+          plate: plate.trim(),
+          make: make.trim() || undefined,
+          model: model.trim() || undefined,
+          engine: engine.trim() || undefined,
+          vin: vin.trim() || undefined,
+          engine_no: engineNo.trim() || undefined,
+        });
+      }
+      onCreated(client);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Σφάλμα δημιουργίας.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const f = (label: string, value: string, set: (v: string) => void, props: Record<string, unknown> = {}) => (
+    <label>
+      {label}
+      <input value={value} onChange={(e) => set(e.target.value)} {...props} />
+    </label>
+  );
+
+  return (
+    <div className="form-grid">
+      <h3>Νέος πελάτης & όχημα</h3>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {f("Όνομα πελάτη", name, setName, { autoFocus: true })}
+      {f("Τηλέφωνο", phone, setPhone, { inputMode: "tel", placeholder: "προαιρετικό" })}
+      {f("Πινακίδα", plate, setPlate, { autoCapitalize: "characters", placeholder: "π.χ. ΑΒΓ-1234" })}
+      {f("Μάρκα", make, setMake, { placeholder: "Toyota" })}
+      {f("Μοντέλο", model, setModel, { placeholder: "Yaris" })}
+      {f("Κυβικά", engine, setEngine, { placeholder: "1400" })}
+      {f("Αρ. πλαισίου (VIN)", vin, setVin)}
+      {f("Αρ. κινητήρα", engineNo, setEngineNo)}
+      <div className="actions">
+        <button className="primary" disabled={busy || !name.trim()} onClick={save}>
+          Αποθήκευση
+        </button>
+        <button disabled={busy} onClick={onCancel}>
+          Άκυρο
+        </button>
+      </div>
+    </div>
   );
 }
 

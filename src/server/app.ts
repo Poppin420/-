@@ -469,6 +469,7 @@ route("POST", "/api/import/garage", true, async (req, ctx, user) => {
       model: field("model"),
       engine: field("engine"),
       vin: field("vin"),
+      engine_no: field("engine_no"),
       year: field("year"),
       notes: field("notes"),
     };

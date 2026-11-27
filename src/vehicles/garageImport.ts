@@ -19,6 +19,7 @@ export interface ImportRow {
   model?: string;
   engine?: string;
   vin?: string;
+  engine_no?: string;
   year?: string;
   notes?: string;
 }
@@ -66,17 +67,17 @@ export async function importGarage(db: Db, userId: string, rows: ImportRow[]): P
 
     // Index existing vehicles by owner+plate, keeping their current fields so an
     // import can backfill blanks (e.g. a VIN) without touching filled-in values.
-    type VehRow = { id: string; make: string | null; model: string | null; engine: string | null; vin: string | null; year: number | null; notes: string | null };
+    type VehRow = { id: string; make: string | null; model: string | null; engine: string | null; vin: string | null; engine_no: string | null; year: number | null; notes: string | null };
     const vehByKey = new Map<string, VehRow>();
     const existingVehicles = await tx.query<VehRow & { client_id: string; plate: string }>(
-      "select id, client_id, plate, make, model, engine, vin, year, notes from vehicles where user_id = $1",
+      "select id, client_id, plate, make, model, engine, vin, engine_no, year, notes from vehicles where user_id = $1",
       [userId],
     );
     const vehKey = (clientId: string, plate: string) => `${clientId}|${normalizePlate(plate)}`;
     for (const v of existingVehicles) {
-      vehByKey.set(vehKey(v.client_id, v.plate), { id: v.id, make: v.make, model: v.model, engine: v.engine, vin: v.vin, year: v.year, notes: v.notes });
+      vehByKey.set(vehKey(v.client_id, v.plate), { id: v.id, make: v.make, model: v.model, engine: v.engine, vin: v.vin, engine_no: v.engine_no, year: v.year, notes: v.notes });
     }
-    const BACKFILL = ["make", "model", "engine", "vin", "year", "notes"] as const;
+    const BACKFILL = ["make", "model", "engine", "vin", "engine_no", "year", "notes"] as const;
 
     for (const row of rows) {
       const name = s(row.name, 200);
@@ -113,6 +114,7 @@ export async function importGarage(db: Db, userId: string, rows: ImportRow[]): P
         model: s(row.model, 60),
         engine: s(row.engine, 40),
         vin: s(row.vin, 40),
+        engine_no: s(row.engine_no, 40),
         year: parseYear(row.year),
         notes: s(row.notes, 2000),
       };
@@ -128,18 +130,18 @@ export async function importGarage(db: Db, userId: string, rows: ImportRow[]): P
         await tx.query(
           `update vehicles set
              make = coalesce(make, $3), model = coalesce(model, $4), engine = coalesce(engine, $5),
-             vin = coalesce(vin, $6), year = coalesce(year, $7), notes = coalesce(notes, $8), updated_at = now()
+             vin = coalesce(vin, $6), engine_no = coalesce(engine_no, $7), year = coalesce(year, $8), notes = coalesce(notes, $9), updated_at = now()
            where user_id = $1 and id = $2`,
-          [userId, existing.id, incoming.make, incoming.model, incoming.engine, incoming.vin, incoming.year, incoming.notes],
+          [userId, existing.id, incoming.make, incoming.model, incoming.engine, incoming.vin, incoming.engine_no, incoming.year, incoming.notes],
         );
         for (const f of toFill) (existing[f] as VehRow[typeof f]) = incoming[f];
         summary.vehiclesUpdated++;
         continue;
       }
       const [created] = await tx.query<{ id: string }>(
-        `insert into vehicles (user_id, client_id, plate, make, model, engine, vin, year, notes)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
-        [userId, clientId, plate, incoming.make, incoming.model, incoming.engine, incoming.vin, incoming.year, incoming.notes],
+        `insert into vehicles (user_id, client_id, plate, make, model, engine, vin, engine_no, year, notes)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
+        [userId, clientId, plate, incoming.make, incoming.model, incoming.engine, incoming.vin, incoming.engine_no, incoming.year, incoming.notes],
       );
       vehByKey.set(vKey, { ...incoming, id: created!.id });
       summary.vehiclesCreated++;
