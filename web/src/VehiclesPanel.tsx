@@ -125,6 +125,8 @@ export function VehiclesPanel({ clientId }: { clientId: string }) {
                   <div>
                     <span className="plate">{v.plate}</span>
                     {summary(v) && <span className="note"> {summary(v)}</span>}
+                    {v.vin && <div className="note">Αρ. πλαισίου: {v.vin}</div>}
+                    {v.engine_no && <div className="note">Αρ. κινητήρα: {v.engine_no}</div>}
                     {v.notes && <div className="note">{v.notes}</div>}
                   </div>
                   <div className="actions" style={{ marginTop: 0 }}>
