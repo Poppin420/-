@@ -266,6 +266,13 @@ alter table invoices add column qr_url text;
 alter table service_records add column amount numeric check (amount is null or (amount >= 0 and amount <= 100000000));
 `,
   },
+  {
+    id: "011_vehicle_engine_no",
+    sql: `
+-- Engine serial number (αριθμός κινητήρα), kept alongside the chassis number (VIN).
+alter table vehicles add column engine_no text;
+`,
+  },
 ];
 
 export async function runMigrations(db: Db): Promise<string[]> {

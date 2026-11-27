@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { api, ApiError, type Vehicle } from "./api";
 import { ServiceHistoryPanel } from "./ServiceHistoryPanel";
 
-type Draft = { plate: string; make: string; model: string; engine: string; vin: string; year: string; notes: string };
+type Draft = { plate: string; make: string; model: string; engine: string; vin: string; engine_no: string; year: string; notes: string };
 
-const EMPTY: Draft = { plate: "", make: "", model: "", engine: "", vin: "", year: "", notes: "" };
+const EMPTY: Draft = { plate: "", make: "", model: "", engine: "", vin: "", engine_no: "", year: "", notes: "" };
 const toDraft = (v: Vehicle): Draft => ({
   plate: v.plate,
   make: v.make ?? "",
   model: v.model ?? "",
   engine: v.engine ?? "",
   vin: v.vin ?? "",
+  engine_no: v.engine_no ?? "",
   year: v.year != null ? String(v.year) : "",
   notes: v.notes ?? "",
 });
@@ -48,6 +49,7 @@ export function VehiclesPanel({ clientId }: { clientId: string }) {
         model: draft.model,
         engine: draft.engine,
         vin: draft.vin,
+        engine_no: draft.engine_no,
         year: draft.year,
         notes: draft.notes,
       };
@@ -90,6 +92,7 @@ export function VehiclesPanel({ clientId }: { clientId: string }) {
       {field("Κινητήρας / κυβικά", "engine", { placeholder: "1400cc" })}
       {field("Έτος", "year", { inputMode: "numeric", placeholder: "2015" })}
       {field("Αριθμός πλαισίου (VIN)", "vin")}
+      {field("Αριθμός κινητήρα", "engine_no")}
       {field("Σημειώσεις", "notes")}
       <div className="actions">
         <button className="primary" disabled={busy || !draft.plate.trim()} onClick={save}>
